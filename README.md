@@ -1,4 +1,6 @@
-# dcdwg — 데이터센터 DWG 도면 도구
+# AttoGrid — 데이터센터 DWG 도면 도구
+
+<sub>by **ATTO Research** · 파이썬 패키지명 `attogrid`</sub>
 
 `.dwg` 도면을 **읽고 · 번역하고(중/한) · 전압 등 전기 구성을 검증하고 · 이미지컷으로 추출**하는
 오픈소스 데스크톱 앱의 코어 라이브러리입니다. (3D 모델링은 로드맵 단계)
@@ -29,7 +31,7 @@
 | DWG 읽기 | ✅ | `dwgread` JSON 경로 |
 | 텍스트 추출 | ✅ | TEXT/MTEXT + 포맷코드 정제 |
 | 번역 대상 분류 | ✅ | 언어(ko/zh/en) 판별, 식별자 자동 제외 (번역 API 연동은 다음 단계) |
-| 전압/구성 검증 | ✅ | 규칙 엔진(`dcdwg/rules/*.json`) |
+| 전압/구성 검증 | ✅ | 규칙 엔진(`attogrid/rules/*.json`) |
 | 이미지컷 | ⚠️ | `dwg2SVG` 부분 렌더, 보강 예정 |
 | DWG 편집·저장 | ⛔ | DXF/JSON 저장으로 대체 |
 | 2D→3D 모델링 | ⛔ | 로드맵 |
@@ -51,7 +53,7 @@ pip install -r requirements.txt
 ```bash
 python cli.py inspect  도면.dwg            # 엔티티/레이어 요약
 python cli.py texts    도면.dwg --translatable   # 번역 대상 텍스트
-python cli.py validate 도면.dwg --rules dcdwg/rules/datacenter.json
+python cli.py validate 도면.dwg --rules attogrid/rules/datacenter.json
 python cli.py svg      도면.dwg out.svg     # 이미지컷(부분)
 ```
 
@@ -60,16 +62,16 @@ python cli.py svg      도면.dwg out.svg     # 이미지컷(부분)
 ## 라이브러리로 사용
 
 ```python
-import dcdwg
-d = dcdwg.read("도면.dwg")
-items = dcdwg.extract_texts(d)
-findings = dcdwg.validate([i.text for i in items], dcdwg.load_rules("dcdwg/rules/datacenter.json"))
+import attogrid
+d = attogrid.read("도면.dwg")
+items = attogrid.extract_texts(d)
+findings = attogrid.validate([i.text for i in items], attogrid.load_rules("attogrid/rules/datacenter.json"))
 ```
 
 ## 프로젝트 구조
 
 ```
-dcdwg/            # 코어 라이브러리
+attogrid/            # 코어 라이브러리
   reader.py       #   DWG/JSON 읽기 (dwgread 경로)
   text.py         #   텍스트 추출 + MTEXT 정제 + 언어 분류
   validate.py     #   전압/구성 검증 규칙 엔진

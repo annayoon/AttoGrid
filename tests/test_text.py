@@ -4,8 +4,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from dcdwg.text import clean_mtext, classify_language  # noqa: E402
-from dcdwg.validate import parse_electrical, validate   # noqa: E402
+from attogrid.text import clean_mtext, classify_language  # noqa: E402
+from attogrid.validate import parse_electrical, validate   # noqa: E402
 
 
 def test_clean_mtext_strips_font_codes():
