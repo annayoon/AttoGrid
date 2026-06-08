@@ -1,0 +1,31 @@
+# --- 가상환경 / 파이썬 ---
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# --- 민감 도면 / 고객 자료 (절대 커밋 금지) ---
+# 실제 DWG/DXF 원본은 저장소에 포함하지 않는다. examples/ 안의 합성 샘플만 허용.
+*.dwg
+*.dxf
+!examples/**/*.dxf
+real.*
+
+# --- 대용량 중간 산출물 ---
+*.json
+!package.json
+!**/rules/*.json
+*.svg
+real.svg
+
+# --- 생성 결과물 ---
+out_*.png
+/build/
+/dist/
+/output/
+
+# --- OS / 에디터 ---
+.DS_Store
+.idea/
+.vscode/

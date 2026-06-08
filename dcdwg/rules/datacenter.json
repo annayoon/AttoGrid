@@ -1,0 +1,7 @@
+{
+  "name": "데이터센터 전기 도면 기본 규칙",
+  "description": "데이터센터(액침냉각 포함) 전기 도면의 전압/구성 검증 규칙. 도면 표준에 맞게 수정해 사용.",
+  "allowed_voltages": ["380V", "220V", "110V", "120V", "208V", "480V", "400V"],
+  "required_keywords": [],
+  "forbidden_patterns": ["TODO", "미정", "\\?\\?\\?"]
+}
