@@ -6,12 +6,14 @@ attogrid CLI — DWG 도면을 읽어 텍스트 추출/번역대상 분류/전�
     python cli.py inspect  <file.dwg|.json>
     python cli.py texts    <file.dwg|.json> [--translatable]
     python cli.py validate <file.dwg|.json> [--rules attogrid/rules/datacenter.json]
+    python cli.py translate <file.dwg|.json> [--to ko] [--limit N] [--mock] [--out map.json]
     python cli.py svg      <file.dwg> <out.svg>
 """
 from __future__ import annotations
 
 import argparse
 import collections
+import json
 from pathlib import Path
 
 import attogrid
@@ -55,6 +57,39 @@ def cmd_validate(args):
         print(f"    [{f.severity}/{f.rule}] {f.message}  {('· ' + f.context) if f.context else ''}")
 
 
+def cmd_translate(args):
+    d = attogrid.read(args.file)
+    items = attogrid.extract_texts(d)
+    targets = [i for i in items if i.translatable]
+    if args.limit:
+        targets = targets[:args.limit]
+    glossary = attogrid.load_glossary(args.glossary) if args.glossary else {}
+
+    if args.mock:
+        translator = attogrid.MockTranslator()
+        print("[mock 모드] 실제 번역 없이 보호/사전 처리만 적용합니다.")
+    else:
+        translator = attogrid.DeepLTranslator()  # DEEPL_API_KEY 필요
+
+    cache = attogrid.TranslationCache(Path(args.cache)).load() if args.cache else None
+    srcs = [t.text for t in targets]
+    outs = attogrid.translate_texts(
+        srcs, translator, glossary=glossary,
+        target=args.to, source="zh", cache=cache,
+    )
+
+    print(f"번역 대상 {len(targets)}건 (고유 {len(set(srcs))}건)")
+    for src, tr in list(zip(srcs, outs))[:args.show]:
+        print(f"  · {src[:40]}\n    → {tr[:60]}")
+
+    if args.out:
+        mapping = [{"source": s, "translation": t} for s, t in zip(srcs, outs)]
+        Path(args.out).write_text(
+            json.dumps(mapping, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        print(f"매핑 저장: {args.out} ({len(mapping)}건)")
+
+
 def cmd_svg(args):
     out = attogrid.render.to_svg(args.file, args.out)
     print(f"SVG 저장: {out}")
@@ -69,6 +104,15 @@ def main():
     s.add_argument("--translatable", action="store_true"); s.set_defaults(fn=cmd_texts)
     s = sub.add_parser("validate"); s.add_argument("file")
     s.add_argument("--rules", default="attogrid/rules/datacenter.json"); s.set_defaults(fn=cmd_validate)
+    s = sub.add_parser("translate"); s.add_argument("file")
+    s.add_argument("--to", default="ko")
+    s.add_argument("--glossary", default="attogrid/glossary/zh_ko.json")
+    s.add_argument("--limit", type=int, default=0)
+    s.add_argument("--show", type=int, default=15)
+    s.add_argument("--mock", action="store_true")
+    s.add_argument("--cache", default=".attogrid_cache.json")
+    s.add_argument("--out")
+    s.set_defaults(fn=cmd_translate)
     s = sub.add_parser("svg"); s.add_argument("file"); s.add_argument("out"); s.set_defaults(fn=cmd_svg)
 
     args = p.parse_args()

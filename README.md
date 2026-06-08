@@ -30,7 +30,8 @@
 |------|------|------|
 | DWG 읽기 | ✅ | `dwgread` JSON 경로 |
 | 텍스트 추출 | ✅ | TEXT/MTEXT + 포맷코드 정제 |
-| 번역 대상 분류 | ✅ | 언어(ko/zh/en) 판별, 식별자 자동 제외 (번역 API 연동은 다음 단계) |
+| 번역 대상 분류 | ✅ | 언어(ko/zh/en) 판별, 식별자 자동 제외 |
+| **번역 (중→한)** | ✅ | DeepL 백엔드 + 전문용어 사전 + 수치/식별자 보호 |
 | 전압/구성 검증 | ✅ | 규칙 엔진(`attogrid/rules/*.json`) |
 | 이미지컷 | ⚠️ | `dwg2SVG` 부분 렌더, 보강 예정 |
 | DWG 편집·저장 | ⛔ | DXF/JSON 저장으로 대체 |
@@ -54,10 +55,34 @@ pip install -r requirements.txt
 python cli.py inspect  도면.dwg            # 엔티티/레이어 요약
 python cli.py texts    도면.dwg --translatable   # 번역 대상 텍스트
 python cli.py validate 도면.dwg --rules attogrid/rules/datacenter.json
+python cli.py translate 도면.dwg --to ko   # 중→한 번역 (DeepL)
 python cli.py svg      도면.dwg out.svg     # 이미지컷(부분)
 ```
 
 `.dwg` 외에 `dwgread`로 미리 덤프한 `.json`도 입력으로 받습니다(대용량 파일 캐시용).
+
+### 번역 (중→한)
+
+DeepL API를 사용합니다. 실행 전 키를 설정하세요:
+
+```bash
+export DEEPL_API_KEY="..."
+python cli.py translate 도면.dwg --to ko --out 번역.json
+```
+
+번역 설계의 핵심은 **번역 전후 보호 처리**입니다:
+
+- 식별자(`CIRCUIT-A-12`)·전압값(`380V`, `3200A`)·규격코드(`GB50370-2005`)는
+  `<x>…</x>` ignore 태그로 감싸 **DeepL이 건드리지 않습니다.**
+- 도메인 용어는 사전(`attogrid/glossary/zh_ko.json`)으로 **한국어 번역을 강제 통일**합니다
+  (예: `七氟丙烷` → `헵타플루오로프로판(FM-200)`).
+- 동일 텍스트는 1회만 번역하고(`.attogrid_cache.json`에 캐시) 비용을 줄입니다.
+
+키 없이 보호/사전 로직만 확인하려면 `--mock`:
+
+```bash
+python cli.py translate 도면.dwg --mock --limit 20
+```
 
 ## 라이브러리로 사용
 

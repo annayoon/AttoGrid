@@ -16,6 +16,7 @@ real.*
 *.json
 !package.json
 !**/rules/*.json
+!**/glossary/*.json
 *.svg
 real.svg
 
@@ -24,6 +25,7 @@ out_*.png
 /build/
 /dist/
 /output/
+.attogrid_cache.json
 
 # --- OS / 에디터 ---
 .DS_Store
