@@ -1,2 +1,4 @@
 ezdxf>=1.4
 matplotlib>=3.10
+deepl>=1.20          # DeepL 번역 백엔드 (DEEPL_API_KEY 필요)
+argostranslate>=1.9  # 오프라인 오픈소스 번역 백엔드 (선택)

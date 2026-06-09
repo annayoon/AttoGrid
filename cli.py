@@ -65,11 +65,16 @@ def cmd_translate(args):
         targets = targets[:args.limit]
     glossary = attogrid.load_glossary(args.glossary) if args.glossary else {}
 
-    if args.mock:
+    backend = "mock" if args.mock else args.backend
+    if backend == "mock":
         translator = attogrid.MockTranslator()
-        print("[mock 모드] 실제 번역 없이 보호/사전 처리만 적용합니다.")
+        print("[mock] 실제 번역 없이 보호/사전 처리만 적용합니다.")
+    elif backend == "argos":
+        translator = attogrid.ArgosTranslator()  # 오프라인·무료
+        print("[argos] 오프라인 오픈소스 번역 (영어 경유 pivot).")
     else:
         translator = attogrid.DeepLTranslator()  # DEEPL_API_KEY 필요
+        print("[deepl] DeepL API 번역.")
 
     cache = attogrid.TranslationCache(Path(args.cache)).load() if args.cache else None
     srcs = [t.text for t in targets]
@@ -109,6 +114,7 @@ def main():
     s.add_argument("--glossary", default="attogrid/glossary/zh_ko.json")
     s.add_argument("--limit", type=int, default=0)
     s.add_argument("--show", type=int, default=15)
+    s.add_argument("--backend", choices=["deepl", "argos", "mock"], default="deepl")
     s.add_argument("--mock", action="store_true")
     s.add_argument("--cache", default=".attogrid_cache.json")
     s.add_argument("--out")

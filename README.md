@@ -31,7 +31,7 @@
 | DWG 읽기 | ✅ | `dwgread` JSON 경로 |
 | 텍스트 추출 | ✅ | TEXT/MTEXT + 포맷코드 정제 |
 | 번역 대상 분류 | ✅ | 언어(ko/zh/en) 판별, 식별자 자동 제외 |
-| **번역 (중→한)** | ✅ | DeepL 백엔드 + 전문용어 사전 + 수치/식별자 보호 |
+| **번역 (중→한)** | ✅ | DeepL / argos(오프라인·무료) 백엔드 + 전문용어 사전 + 수치/식별자 보호 |
 | 전압/구성 검증 | ✅ | 규칙 엔진(`attogrid/rules/*.json`) |
 | 이미지컷 | ⚠️ | `dwg2SVG` 부분 렌더, 보강 예정 |
 | DWG 편집·저장 | ⛔ | DXF/JSON 저장으로 대체 |
@@ -63,12 +63,28 @@ python cli.py svg      도면.dwg out.svg     # 이미지컷(부분)
 
 ### 번역 (중→한)
 
-DeepL API를 사용합니다. 실행 전 키를 설정하세요:
+두 가지 백엔드를 지원합니다 (`--backend`):
+
+| 백엔드 | 비용 | 품질 | 비고 |
+|--------|------|------|------|
+| `deepl` | 무료 50만자/월~ | **높음** | `DEEPL_API_KEY` 필요 |
+| `argos` | **무료·오프라인** | 보통(노이즈 있음) | 키·인터넷 불필요(모델 설치 후), 영어 경유 |
+| `mock` | — | — | 보호/사전 로직만 검증 |
 
 ```bash
-export DEEPL_API_KEY="..."
-python cli.py translate 도면.dwg --to ko --out 번역.json
+# DeepL (운영 품질)
+export DEEPL_API_KEY="...:fx"
+python cli.py translate 도면.dwg --backend deepl --out 번역.json
+
+# argos (무료·오프라인) — 최초 1회 모델 설치 필요
+python -c "from argostranslate import package as p; p.update_package_index(); \
+  [p.install_from_path(x.download()) for x in p.get_available_packages() \
+   if (x.from_code,x.to_code) in (('zh','en'),('en','ko'))]"
+python cli.py translate 도면.dwg --backend argos --out 번역.json
 ```
+
+> **품질 참고:** 어느 백엔드든 전문용어는 glossary가 교정하고 수치/식별자는 보호되지만,
+> 연결 문장 품질은 DeepL이 확연히 낫습니다. argos는 무료·오프라인 "미리보기"용으로 적합합니다.
 
 번역 설계의 핵심은 **번역 전후 보호 처리**입니다:
 

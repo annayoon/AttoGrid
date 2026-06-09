@@ -97,6 +97,48 @@ class MockTranslator:
         return list(texts)
 
 
+class ArgosTranslator:
+    """오프라인 오픈소스 백엔드(argos-translate, MIT). 키·인터넷 불필요(모델 설치 후).
+
+    zh->ko 직접 모델이 없으면 영어 경유(pivot)로 번역한다.
+    DeepL과 달리 ignore 태그를 지원하지 않으므로, 보호 구간 <x>…</x> 는
+    번역에서 제외하고 일반 텍스트 노드만 번역해 재조립한다.
+    """
+
+    # 중국어 전각 부호 -> ASCII (pivot 번역 노이즈 감소)
+    _PUNCT = str.maketrans({
+        "、": ", ", "，": ", ", "。": ". ", "：": ": ", "；": "; ",
+        "！": "! ", "？": "? ", "（": " (", "）": ") ",
+        "《": " \"", "》": "\" ", "“": "\"", "”": "\"",
+    })
+
+    def __init__(self):
+        import argostranslate.translate  # 지연 임포트
+        self._tr = argostranslate.translate
+
+    def _translate_chunk(self, text: str, target: str, source: str) -> str:
+        if not text.strip():
+            return text
+        text = text.translate(self._PUNCT)
+        try:
+            return self._tr.translate(text, source or "zh", target)
+        except Exception:
+            return text  # 모델 미설치 등은 원문 유지
+
+    def translate_batch(self, texts, target, source=None):
+        out = []
+        for masked in texts:
+            parts, i = [], 0
+            for m in _UNMASK.finditer(masked):
+                literal = html.unescape(masked[i:m.start()])
+                parts.append(self._translate_chunk(literal, target, source))
+                parts.append(m.group(0))               # <x>…</x> 원문 보존
+                i = m.end()
+            parts.append(self._translate_chunk(html.unescape(masked[i:]), target, source))
+            out.append("".join(parts))
+        return out
+
+
 class DeepLTranslator:
     """DeepL API 백엔드. DEEPL_API_KEY 환경변수 필요."""
 

@@ -4,7 +4,7 @@ from .text import extract_texts, clean_mtext, classify_language, TextItem
 from .validate import validate, load_rules, parse_electrical, Finding
 from .translate import (
     translate_texts, load_glossary, mask, unmask,
-    DeepLTranslator, MockTranslator, TranslationCache,
+    DeepLTranslator, ArgosTranslator, MockTranslator, TranslationCache,
 )
 from . import render
 
@@ -15,6 +15,6 @@ __all__ = [
     "extract_texts", "clean_mtext", "classify_language", "TextItem",
     "validate", "load_rules", "parse_electrical", "Finding",
     "translate_texts", "load_glossary", "mask", "unmask",
-    "DeepLTranslator", "MockTranslator", "TranslationCache",
+    "DeepLTranslator", "ArgosTranslator", "MockTranslator", "TranslationCache",
     "render",
 ]
