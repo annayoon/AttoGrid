@@ -18,13 +18,30 @@ document.querySelectorAll(".tab").forEach(t => {
 // 파일 열기
 $("#btn-open").onclick = async () => {
   status("파일 선택 대기…", "spin");
-  const path = await window.pywebview.api.open_dialog();
-  if (!path) { status("취소됨"); return; }
-  currentPath = path;
-  $("#filepath").textContent = path;
-  status("로드됨: " + path.split("/").pop());
-  run("inspect");
+  try {
+    const path = await window.pywebview.api.open_dialog();
+    if (!path) { status("취소됨"); return; }
+    currentPath = path;
+    $("#filepath").textContent = path;
+    status("로드됨: " + path.split("/").pop());
+    run("inspect");
+  } catch (e) {
+    status("파일 열기 오류: " + String(e), "sev-error");
+  }
 };
+
+// 경로 직접 입력으로 열기 (다이얼로그 우회)
+async function loadPath(p) {
+  p = (p || "").trim();
+  if (!p) { status("경로를 입력하세요", "sev-warning"); return; }
+  currentPath = p;
+  $("#filepath").textContent = p;
+  status("로드 중: " + p.split("/").pop(), "spin");
+  document.querySelector('.tab[data-tab="inspect"]').click();
+  await run("inspect");
+}
+$("#btn-load").onclick = () => loadPath($("#pathinput").value);
+$("#pathinput").addEventListener("keydown", e => { if (e.key === "Enter") loadPath(e.target.value); });
 
 // 액션 버튼
 document.querySelectorAll("[data-run]").forEach(b => {
@@ -111,4 +128,16 @@ function renderTranslate(d) {
   status(`번역 완료: ${d.count}건 (${d.backend})`);
 }
 
-window.addEventListener("pywebviewready", () => status("준비됨 — 도면을 여세요"));
+// 명령행으로 전달된 파일이 있으면 자동 로드
+window.addEventListener("pywebviewready", async () => {
+  status("준비됨 — 도면을 여세요");
+  try {
+    const p = await window.pywebview.api.default_path();
+    if (p) {
+      currentPath = p;
+      $("#filepath").textContent = p;
+      status("자동 로드: " + p.split("/").pop());
+      run("inspect");
+    }
+  } catch (e) { /* 무시 */ }
+});

@@ -22,8 +22,13 @@ RULES = ROOT / "attogrid" / "rules" / "datacenter.json"
 class Api:
     """JS에서 호출되는 백엔드 API. 로드한 도면을 캐시해 재파싱을 피한다."""
 
-    def __init__(self):
+    def __init__(self, default_path: str | None = None):
         self._cache: dict[str, attogrid.Drawing] = {}
+        self._default_path = default_path
+
+    # 명령행으로 받은 파일 경로(있으면 UI가 자동 로드)
+    def default_path(self) -> str | None:
+        return self._default_path
 
     # --- 내부 ---
     def _load(self, path: str) -> attogrid.Drawing:
@@ -35,11 +40,15 @@ class Api:
     def open_dialog(self) -> str | None:
         import webview
         win = webview.windows[0]
-        result = win.create_file_dialog(
-            webview.OPEN_DIALOG,
-            file_types=("DWG/JSON (*.dwg;*.json)", "All files (*.*)"),
-        )
-        return result[0] if result else None
+        # macOS NSOpenPanel은 file_types 파싱이 까다로워 파일이 비활성화될 수 있으므로
+        # 필터 없이 모든 파일을 선택 가능하게 연다.
+        try:
+            result = win.create_file_dialog(webview.OPEN_DIALOG, allow_multiple=False)
+        except Exception:
+            result = win.create_file_dialog(10)  # OPEN_DIALOG 폴백
+        if not result:
+            return None
+        return result[0] if isinstance(result, (list, tuple)) else result
 
     # --- 요약 ---
     def inspect(self, path: str) -> dict:
@@ -118,8 +127,16 @@ class Api:
 
 
 def main():
+    import sys
     import webview
-    api = Api()
+    # 인자로 파일 경로를 주면 UI가 자동 로드 (다이얼로그 우회용)
+    default_path = None
+    if len(sys.argv) > 1:
+        p = Path(sys.argv[1]).expanduser()
+        default_path = str(p) if p.exists() else None
+        if default_path is None:
+            print(f"경고: 파일을 찾을 수 없음 → {sys.argv[1]}")
+    api = Api(default_path)
     webview.create_window(
         "AttoGrid — 데이터센터 DWG 도구  (by ATTO Research)",
         str(ROOT / "ui" / "index.html"),

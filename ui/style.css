@@ -24,6 +24,8 @@ header {
 .sub { color: var(--muted); font-size: 12px; }
 .filebar { display: flex; align-items: center; gap: 12px; }
 .filepath { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pathinput { background: var(--panel2); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font-size: 12px; min-width: 220px; }
+.pathinput:focus { outline: none; border-color: var(--accent); }
 
 button {
   background: var(--panel2); color: var(--fg); border: 1px solid var(--line);
