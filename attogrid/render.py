@@ -180,18 +180,21 @@ def json_to_svg(
     # 구획 경계 사각형
     if boxes:
         bw = w * 0.0015
-        fs = w * 0.02
+        fs = w * 0.011
         lines.append(f'<g transform="translate({-minx:.2f},0)" fill="none" '
                      f'stroke="#d29922" stroke-width="{bw:.2f}" '
                      f'stroke-dasharray="{w*0.01:.1f},{w*0.006:.1f}">')
         for bx in boxes:
             x0, y0, x1, y1 = bx["bounds"]
             ry = maxy - y1
-            lab = str(bx.get("title") or bx.get("label", "")).replace("&", "&amp;").replace("<", "&lt;")
+            # 도면 위 라벨은 짧게(겹침 방지). 전체 제목은 표에서 확인.
+            full = str(bx.get("title") or bx.get("label", ""))
+            short = full if len(full) <= 16 else full[:15] + "…"
+            short = short.replace("&", "&amp;").replace("<", "&lt;")
             lines.append(
                 f'<rect x="{x0:.1f}" y="{ry:.1f}" width="{x1-x0:.1f}" height="{y1-y0:.1f}"/>'
-                f'<text x="{x0+bw*4:.1f}" y="{ry+fs:.1f}" fill="#d29922" stroke="none" '
-                f'font-size="{fs:.1f}" font-family="sans-serif">{lab}</text>'
+                f'<text x="{x0+bw*4:.1f}" y="{ry-fs*0.4:.1f}" fill="#d29922" stroke="none" '
+                f'font-size="{fs:.1f}" font-family="sans-serif">{short}</text>'
             )
         lines.append("</g>")
 

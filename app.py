@@ -109,12 +109,15 @@ class Api:
         secs = attogrid.partition(d, method=method, rows=rows, cols=cols)
         items = attogrid.extract_texts(d)
         rules = attogrid.load_rules(RULES)
+        glossary = attogrid.load_glossary(GLOSSARY)
         for s in secs:
             b = s["bounds"]
             inside = [it for it in items if it.x is not None
                       and b[0] <= it.x <= b[2] and b[1] <= it.y <= b[3]]
             findings = attogrid.validate([it.text for it in inside], rules)
-            s["title"] = section_title(d, b) or s["label"]
+            zh_title = section_title(d, b) or s["label"]
+            s["title_zh"] = zh_title
+            s["title"] = attogrid.glossary_translate(zh_title, glossary)  # 한국어 표시용
             s["texts"] = len(inside)
             s["translatable"] = sum(1 for it in inside if it.translatable)
             s["violations"] = sum(1 for f in findings if f.severity != "info")

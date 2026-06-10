@@ -194,6 +194,26 @@ def load_glossary(path: str | Path) -> dict[str, str]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+_CJK_PUNCT = str.maketrans({"、": " · ", "，": ", ", "。": ".", "：": ": ", "；": "; "})
+
+
+def glossary_translate(text: str, glossary: dict[str, str]) -> str:
+    """사전만으로 즉시 번역(외부 엔진 불필요). 제목·짧은 라벨용.
+
+    사전에 있는 용어를 긴 것부터 한국어로 치환하고 전각 부호를 정리한다.
+    사전에 없는 글자는 원문이 남는다.
+    """
+    if not text:
+        return text
+    for k in sorted(glossary, key=len, reverse=True):
+        if k in text:
+            text = text.replace(k, f" {glossary[k]} ")  # 용어 사이 공백
+    text = text.translate(_CJK_PUNCT)
+    text = re.sub(r"\s+", " ", text)          # 중복 공백 정리
+    text = re.sub(r"\s+([,.;:])", r"\1", text)  # 부호 앞 공백 제거(· 제외)
+    return text.strip()
+
+
 def translate_texts(
     texts: list[str],
     translator: Translator,

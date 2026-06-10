@@ -3,7 +3,7 @@ from .reader import read, Drawing
 from .text import extract_texts, clean_mtext, classify_language, TextItem
 from .validate import validate, load_rules, parse_electrical, explain_voltage, Finding
 from .translate import (
-    translate_texts, load_glossary, mask, unmask,
+    translate_texts, load_glossary, glossary_translate, mask, unmask,
     DeepLTranslator, ArgosTranslator, MockTranslator, TranslationCache,
 )
 from .rewrite import translate_dxf
@@ -17,7 +17,7 @@ __all__ = [
     "read", "Drawing",
     "extract_texts", "clean_mtext", "classify_language", "TextItem",
     "validate", "load_rules", "parse_electrical", "explain_voltage", "Finding",
-    "translate_texts", "load_glossary", "mask", "unmask",
+    "translate_texts", "load_glossary", "glossary_translate", "mask", "unmask",
     "DeepLTranslator", "ArgosTranslator", "MockTranslator", "TranslationCache",
     "translate_dxf", "extrude", "partition",
     "render",

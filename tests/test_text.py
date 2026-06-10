@@ -52,6 +52,15 @@ def test_required_keywords_dict():
     assert not [x for x in validate(["接地 母线"], rules) if x.rule == "required_keywords"]
 
 
+def test_glossary_translate_title():
+    from attogrid.translate import glossary_translate
+    g = {"浸没式机房": "액침 냉각 전산실", "电力系统": "전력 계통",
+         "消防系统": "소방 설비", "图纸": "도면"}
+    out = glossary_translate("浸没式机房电力系统、消防系统图纸", g)
+    assert "액침 냉각 전산실" in out and "전력 계통" in out and "도면" in out
+    assert "电" not in out and "·" in out   # 한자 사라지고 부호 변환
+
+
 def test_current_breaker_check():
     from attogrid.validate import _check_current
     assert _check_current(["Ijs=4000A", "3200A/4P"], {})       # 부족
