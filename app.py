@@ -82,6 +82,32 @@ class Api:
             d, max_count=max_count, width=1400, highlights=highlights, boxes=boxes)
         return {"svg": svg, "polylines": svg.count("<polyline")}
 
+    # --- 번역을 도면 위에 얹어 렌더 ---
+    def render_translated(self, path: str, backend: str = "glossary",
+                          max_count: int = 50000, limit: int = 0) -> dict:
+        d = self._load(path)
+        items = [it for it in attogrid.extract_texts(d)
+                 if it.translatable and it.x is not None]
+        if limit:
+            items = items[:limit]
+        glossary = attogrid.load_glossary(GLOSSARY)
+
+        if backend == "glossary":
+            # 사전만으로 즉시(한자 용어만 한국어, 나머지는 원문)
+            outs = [attogrid.glossary_translate(it.text, glossary) for it in items]
+        else:
+            tr = (attogrid.MockTranslator() if backend == "mock"
+                  else attogrid.DeepLTranslator() if backend == "deepl"
+                  else attogrid.ArgosTranslator())
+            cache = attogrid.TranslationCache(Path(ROOT / ".attogrid_cache.json")).load()
+            outs = attogrid.translate_texts([it.text for it in items], tr,
+                                            glossary=glossary, target="ko",
+                                            source="zh", cache=cache)
+        texts = [{"x": it.x, "y": it.y, "height": it.height, "text": t}
+                 for it, t in zip(items, outs) if t]
+        svg = attogrid.render.json_to_svg(d, max_count=max_count, width=1400, texts=texts)
+        return {"svg": svg, "texts": len(texts), "backend": backend}
+
     # --- 도면 이미지 내보내기 (PNG/SVG) ---
     def export_image(self, path: str, fmt: str = "png",
                      with_markers: bool = False, out_path: str | None = None) -> dict:

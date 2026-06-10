@@ -131,6 +131,20 @@ async function exportImage(fmt) {
 $("#btn-png").onclick = () => exportImage("png");
 $("#btn-svg").onclick = () => exportImage("svg");
 
+// 도면 위에 번역 얹기
+$("#btn-overlay").onclick = async () => {
+  if (!needFile()) return;
+  const engine = $("#overlay-engine").value;
+  status(`번역 얹는 중… (${engine})${engine !== "glossary" ? " — 시간이 걸릴 수 있습니다" : ""}`, "spin");
+  try {
+    const r = await window.pywebview.api.render_translated(currentPath, engine);
+    $("#preview-out").innerHTML = r.svg;
+    setupPanZoom($("#preview-out"));
+    document.querySelector('.tab[data-tab="preview"]').click();
+    status(`번역 ${r.texts.toLocaleString()}개를 도면에 얹음 (${r.backend}) · 휠로 확대`);
+  } catch (e) { status("번역 얹기 오류: " + String(e), "sev-error"); }
+};
+
 // 격자 옵션은 grid 방식일 때만 표시
 function syncGridOpts() { $("#grid-opts").style.display = $("#part-method").value === "grid" ? "" : "none"; }
 $("#part-method").onchange = syncGridOpts;

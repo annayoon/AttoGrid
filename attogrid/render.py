@@ -107,7 +107,7 @@ def json_to_svg(
     drawing, out_path: str | Path | None = None,
     max_count: int = 60000, width: int = 1400, stroke: float = 0.0,
     highlights: list | None = None, bounds: tuple | None = None,
-    boxes: list | None = None,
+    boxes: list | None = None, texts: list | None = None,
 ) -> str:
     """dwgread JSON 도면을 SVG 문자열로 렌더(필요 시 파일 저장).
 
@@ -196,6 +196,23 @@ def json_to_svg(
                 f'<text x="{x0+bw*4:.1f}" y="{ry-fs*0.4:.1f}" fill="#d29922" stroke="none" '
                 f'font-size="{fs:.1f}" font-family="sans-serif">{short}</text>'
             )
+        lines.append("</g>")
+
+    # 번역 텍스트 오버레이 (원래 좌표에 한국어)
+    if texts:
+        def _esc2(s):
+            return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        lines.append(f'<g transform="translate({-minx:.2f},0)" '
+                     f'fill="#ffd479" stroke="none" font-family="sans-serif">')
+        default_h = w * 0.004
+        for tx in texts:
+            x = tx["x"]
+            y = maxy - tx["y"]
+            fh = tx.get("height") or default_h
+            s = _esc2(tx.get("text", ""))
+            if s:
+                lines.append(
+                    f'<text x="{x:.1f}" y="{y:.1f}" font-size="{fh:.1f}">{s}</text>')
         lines.append("</g>")
 
     lines.append("</svg>")

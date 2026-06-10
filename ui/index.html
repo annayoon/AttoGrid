@@ -40,6 +40,12 @@
         <button data-run="preview">도면 렌더</button>
         <button id="btn-fit">원래대로</button>
         <span class="hint">휠: 확대/축소 · 드래그: 이동</span>
+        <button id="btn-overlay">번역 얹기</button>
+        <select id="overlay-engine" title="번역 엔진">
+          <option value="glossary">사전(즉시)</option>
+          <option value="argos">argos</option>
+          <option value="deepl">DeepL</option>
+        </select>
         <span style="flex:1"></span>
         <label><input type="checkbox" id="img-markers"> 전압 마커 포함</label>
         <button id="btn-png">PNG 저장</button>

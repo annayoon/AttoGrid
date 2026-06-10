@@ -50,6 +50,7 @@ class TextItem:
     x: float | None = None     # 삽입점 X (모델 좌표)
     y: float | None = None     # 삽입점 Y
     layer: str | None = None
+    height: float | None = None  # 글자 높이(모델 단위)
 
 
 def extract_texts(drawing) -> list[TextItem]:
@@ -80,5 +81,6 @@ def extract_texts(drawing) -> list[TextItem]:
             x=round(pt[0], 2) if len(pt) > 0 else None,
             y=round(pt[1], 2) if len(pt) > 1 else None,
             layer=o.get("layer"),
+            height=o.get("height") or o.get("text_height") or None,
         ))
     return items

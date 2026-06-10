@@ -64,6 +64,20 @@ def test_translate_rows_include_position():
     assert "X,Y" in txt and "100.5" in txt
 
 
+def test_render_translated_overlay():
+    api = Api()
+    data = {"OBJECTS": [
+        {"entity": "LINE", "entmode": 2, "start": [0, 0, 0], "end": [100, 100, 0]},
+        {"entity": "TEXT", "entmode": 2, "text_value": "气体灭火系统",
+         "ins_pt": [10, 20, 0], "height": 5},
+    ]}
+    api._cache["p"] = attogrid.Drawing(source=Path("p"), data=data, objects=data["OBJECTS"])
+    r = api.render_translated("p", backend="glossary")
+    assert r["texts"] >= 1
+    assert "가스 소화 설비" in r["svg"]      # 도면에 한국어 텍스트가 얹힘
+    assert "<text" in r["svg"]
+
+
 def test_export_section_translations():
     import tempfile
     # 두 시트(프레임) + 각 시트 안에 중국어 텍스트
