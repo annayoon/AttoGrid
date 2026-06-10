@@ -8,6 +8,7 @@ from .translate import (
 )
 from .rewrite import translate_dxf
 from .model3d import extrude
+from .partition import partition
 from . import render
 
 __version__ = "0.1.0"
@@ -18,6 +19,6 @@ __all__ = [
     "validate", "load_rules", "parse_electrical", "explain_voltage", "Finding",
     "translate_texts", "load_glossary", "mask", "unmask",
     "DeepLTranslator", "ArgosTranslator", "MockTranslator", "TranslationCache",
-    "translate_dxf", "extrude",
+    "translate_dxf", "extrude", "partition",
     "render",
 ]

@@ -91,19 +91,41 @@ def _robust_bounds(polylines) -> tuple[float, float, float, float]:
     return xs[lo], ys[lo], xs[hi], ys[hi]
 
 
+def _clip(polylines, bounds):
+    """centroid가 bounds 안에 드는 폴리라인만 남긴다(구획 렌더용)."""
+    bx0, by0, bx1, by1 = bounds
+    out = []
+    for pl in polylines:
+        cx = sum(p[0] for p in pl) / len(pl)
+        cy = sum(p[1] for p in pl) / len(pl)
+        if bx0 <= cx <= bx1 and by0 <= cy <= by1:
+            out.append(pl)
+    return out
+
+
 def json_to_svg(
     drawing, out_path: str | Path | None = None,
     max_count: int = 60000, width: int = 1400, stroke: float = 0.0,
-    highlights: list | None = None,
+    highlights: list | None = None, bounds: tuple | None = None,
+    boxes: list | None = None,
 ) -> str:
     """dwgread JSON 도면을 SVG 문자열로 렌더(필요 시 파일 저장).
 
     highlights: [{"x":.., "y":.., "label":..}] 모델 좌표. 도면과 같은 변환으로
     위치에 마커(원+십자+라벨)를 그린다(예: 비표준 전압 위치).
+    bounds: (minx,miny,maxx,maxy) 지정 시 해당 구획만 렌더.
+    boxes: [{"bounds":[x0,y0,x1,y1], "label":..}] 구획 경계 사각형 오버레이.
     """
     polylines = _polylines(drawing.objects, max_count)
     polylines = _dominant_cluster(polylines)
-    minx, miny, maxx, maxy = _robust_bounds(polylines)
+    if bounds:
+        polylines = _clip(polylines, bounds)
+    if not polylines:
+        raise RuntimeError("렌더할 도형이 없습니다.")
+    if bounds:
+        minx, miny, maxx, maxy = bounds
+    else:
+        minx, miny, maxx, maxy = _robust_bounds(polylines)
     w = (maxx - minx) or 1.0
     h = (maxy - miny) or 1.0
     height = int(width * h / w)
@@ -155,6 +177,24 @@ def json_to_svg(
             )
         lines.append("</g>")
 
+    # 구획 경계 사각형
+    if boxes:
+        bw = w * 0.0015
+        fs = w * 0.02
+        lines.append(f'<g transform="translate({-minx:.2f},0)" fill="none" '
+                     f'stroke="#d29922" stroke-width="{bw:.2f}" '
+                     f'stroke-dasharray="{w*0.01:.1f},{w*0.006:.1f}">')
+        for bx in boxes:
+            x0, y0, x1, y1 = bx["bounds"]
+            ry = maxy - y1
+            lab = str(bx.get("label", "")).replace("&", "&amp;").replace("<", "&lt;")
+            lines.append(
+                f'<rect x="{x0:.1f}" y="{ry:.1f}" width="{x1-x0:.1f}" height="{y1-y0:.1f}"/>'
+                f'<text x="{x0+bw*4:.1f}" y="{ry+fs:.1f}" fill="#d29922" stroke="none" '
+                f'font-size="{fs:.1f}" font-family="sans-serif">{lab}</text>'
+            )
+        lines.append("</g>")
+
     lines.append("</svg>")
     svg = "\n".join(lines)
 
@@ -166,9 +206,9 @@ def json_to_svg(
 def json_to_png(
     drawing, out_path: str | Path,
     max_count: int = 80000, width_px: int = 2400, dpi: int = 150,
-    highlights: list | None = None,
+    highlights: list | None = None, bounds: tuple | None = None,
 ) -> str:
-    """dwgread JSON 도면을 PNG로 렌더(matplotlib). highlights 마커 지원."""
+    """dwgread JSON 도면을 PNG로 렌더(matplotlib). highlights 마커·bounds 구획 지원."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -176,10 +216,12 @@ def json_to_png(
 
     polylines = _polylines(drawing.objects, max_count)
     polylines = _dominant_cluster(polylines)
+    if bounds:
+        polylines = _clip(polylines, bounds)
     segs = [pl for pl in polylines if len(pl) >= 2]
     if not segs:
         raise RuntimeError("렌더할 도형이 없습니다.")
-    minx, miny, maxx, maxy = _robust_bounds(polylines)
+    minx, miny, maxx, maxy = bounds if bounds else _robust_bounds(polylines)
     w = (maxx - minx) or 1.0
     h = (maxy - miny) or 1.0
 

@@ -131,6 +131,34 @@ async function exportImage(fmt) {
 $("#btn-png").onclick = () => exportImage("png");
 $("#btn-svg").onclick = () => exportImage("svg");
 
+// 구획 미리보기: 경계 박스를 도면에 오버레이
+$("#btn-partition").onclick = async () => {
+  if (!needFile()) return;
+  const method = $("#part-method").value;
+  status("구획 분석 중…", "spin");
+  try {
+    const part = await window.pywebview.api.partition(currentPath, method);
+    const r = await window.pywebview.api.render(currentPath, 50000, null, part.sections);
+    $("#preview-out").innerHTML = r.svg;
+    setupPanZoom($("#preview-out"));
+    document.querySelector('.tab[data-tab="preview"]').click();
+    $("#part-info").textContent = `${part.count}개 구획`;
+    status(`구획 ${part.count}개 (${method}) — 경계 표시`);
+  } catch (e) { status("구획 오류: " + String(e), "sev-error"); }
+};
+
+// 구획별 이미지 저장
+$("#btn-sections").onclick = async () => {
+  if (!needFile()) return;
+  const method = $("#part-method").value;
+  const markers = $("#img-markers").checked;
+  status(`구획별 이미지 생성 중…`, "spin");
+  try {
+    const r = await window.pywebview.api.export_sections(currentPath, method, "png", markers);
+    status(`구획 ${r.count}개 저장됨: ${r.dir}`);
+  } catch (e) { status("구획 저장 오류: " + String(e), "sev-error"); }
+};
+
 function renderTexts(d) {
   const rows = d.rows.map(r =>
     `<tr><td><span class="tag ${r.lang}">${r.lang}</span></td>

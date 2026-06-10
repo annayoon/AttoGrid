@@ -76,10 +76,10 @@ class Api:
         return {"total": len(items), "dist": dict(dist), "rows": rows}
 
     # --- 도면 미리보기 (JSON 지오메트리 직접 렌더) ---
-    def render(self, path: str, max_count: int = 50000, highlights=None) -> dict:
+    def render(self, path: str, max_count: int = 50000, highlights=None, boxes=None) -> dict:
         d = self._load(path)
         svg = attogrid.render.json_to_svg(
-            d, max_count=max_count, width=1400, highlights=highlights)
+            d, max_count=max_count, width=1400, highlights=highlights, boxes=boxes)
         return {"svg": svg, "polylines": svg.count("<polyline")}
 
     # --- 도면 이미지 내보내기 (PNG/SVG) ---
@@ -100,6 +100,55 @@ class Api:
         else:
             attogrid.render.json_to_png(d, str(p), highlights=highlights)
         return {"path": str(p)}
+
+    # --- 도면 구획 분할 ---
+    def partition(self, path: str, method: str = "auto",
+                  rows: int = 2, cols: int = 2) -> dict:
+        d = self._load(path)
+        secs = attogrid.partition(d, method=method, rows=rows, cols=cols)
+        return {"method": method, "count": len(secs), "sections": secs}
+
+    # --- 구획별 이미지 저장 ---
+    def export_sections(self, path: str, method: str = "auto", fmt: str = "png",
+                        with_markers: bool = False, rows: int = 2, cols: int = 2,
+                        out_dir: str | None = None) -> dict:
+        d = self._load(path)
+        secs = attogrid.partition(d, method=method, rows=rows, cols=cols)
+        if not secs:
+            return {"count": 0, "dir": None, "files": []}
+        markers = self.locate_voltages(path, include_ok=True)["items"] if with_markers else None
+        if not out_dir:
+            out_dir = self._folder_dialog() or str(ROOT / "sections")
+        outd = Path(out_dir).expanduser()
+        outd.mkdir(parents=True, exist_ok=True)
+
+        files = []
+        for i, s in enumerate(secs, 1):
+            b = tuple(s["bounds"])
+            hl = ([h for h in markers if b[0] <= h["x"] <= b[2] and b[1] <= h["y"] <= b[3]]
+                  if markers else None)
+            name = f"{i:02d}_{s['label'].replace(' ', '')}.{fmt}"
+            fp = outd / name
+            try:
+                if fmt == "svg":
+                    attogrid.render.json_to_svg(d, out_path=str(fp), bounds=b, highlights=hl)
+                else:
+                    attogrid.render.json_to_png(d, str(fp), bounds=b, highlights=hl)
+                files.append(str(fp))
+            except Exception:
+                continue
+        return {"count": len(files), "dir": str(outd), "files": files}
+
+    def _folder_dialog(self) -> str | None:
+        try:
+            import webview
+            win = webview.windows[0]
+            r = win.create_file_dialog(webview.FOLDER_DIALOG)
+        except Exception:
+            return None
+        if not r:
+            return None
+        return r if isinstance(r, str) else r[0]
 
     # --- 전압의 도면상 위치 찾기 ---
     # include_ok=False: 위반(비표준)만 빨강. True: 정상 전압도 초록으로 표시.

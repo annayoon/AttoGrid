@@ -45,6 +45,18 @@
         <button id="btn-png">PNG 저장</button>
         <button id="btn-svg">SVG 저장</button>
       </div>
+      <div class="toolbar">
+        <label>구획
+          <select id="part-method">
+            <option value="auto">자동(프레임)</option>
+            <option value="cluster">공간 클러스터</option>
+            <option value="grid">격자 2×2</option>
+          </select>
+        </label>
+        <button id="btn-partition">구획 미리보기</button>
+        <button id="btn-sections">구획별 이미지 저장</button>
+        <span id="part-info" class="hint"></span>
+      </div>
       <div id="preview-out" class="out preview-out"></div>
     </section>
 

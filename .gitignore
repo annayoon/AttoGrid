@@ -26,6 +26,11 @@ out_*.png
 /dist/
 /output/
 .attogrid_cache.json
+/sections/
+drawing.png
+drawing.svg
+translations.csv
+translations.json
 
 # --- OS / 에디터 ---
 .DS_Store
