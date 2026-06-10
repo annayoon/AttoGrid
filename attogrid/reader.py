@@ -23,7 +23,12 @@ class Drawing:
 
     @property
     def layers(self) -> list[dict]:
-        return self.data.get("TABLES", {}).get("LAYER", [])
+        # DXF 변환본: TABLES.LAYER / dwgread JSON: OBJECTS 안의 LAYER 엔티티
+        tbl = self.data.get("TABLES", {}).get("LAYER", [])
+        if tbl:
+            return tbl
+        # dwgread JSON에서 LAYER는 비그래픽 객체라 "object" 키를 가진다
+        return [o for o in self.objects if "LAYER" in (o.get("entity"), o.get("object"))]
 
     def query(self, entity_type: str) -> list[dict]:
         return [o for o in self.objects if o.get("entity") == entity_type]

@@ -49,6 +49,21 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## 데스크톱 앱 실행
+
+```bash
+python app.py
+```
+
+`attogrid` 코어를 그대로 쓰는 pywebview 기반 네이티브 앱입니다. 탭 구성:
+
+- **개요** — 객체/레이어 수, 엔티티 분포
+- **텍스트** — 추출 텍스트 + 언어 분류(번역 대상 필터)
+- **전압 검증** — 비표준 전압/구성 위반 목록
+- **번역** — 엔진(argos/DeepL/mock) 선택해 중→한 번역
+
+UI 소스는 `ui/`(HTML/JS/CSS), JS↔Python 브리지는 `app.py`의 `Api` 클래스입니다.
+
 ## 사용법 (CLI)
 
 ```bash
@@ -118,6 +133,9 @@ attogrid/            # 코어 라이브러리
   validate.py     #   전압/구성 검증 규칙 엔진
   render.py       #   이미지컷(SVG)
   rules/          #   검증 규칙(JSON, 도면 표준별로 수정)
+  glossary/       #   번역 전문용어 사전(중→한)
+app.py            # 데스크톱 앱(pywebview) + JS 브리지 Api
+ui/               # 앱 프론트엔드 (HTML/JS/CSS)
 cli.py            # 커맨드라인 진입점
 examples/         # 합성 샘플 생성기(공개 가능 데이터)
 tests/            # 단위 테스트
@@ -128,7 +146,7 @@ tests/            # 단위 테스트
 1. **번역 연동** — 추출 텍스트 → 번역 API(중→한) → 결과 매핑/재삽입
 2. **검증 규칙 심화** — 이중전원(A/B), 부하 합계, ATS/변압기 용량 정합성
 3. **이미지컷 보강** — JSON 지오메트리 직접 렌더 또는 외부 렌더러
-4. **데스크톱 앱** — Electron/Tauri UI + 본 코어를 사이드카로
+4. ~~**데스크톱 앱**~~ — ✅ pywebview 앱(`app.py`) 구현됨
 5. **2D→3D** — 랙/장비 배치 압출 뷰
 
 ## 라이선스

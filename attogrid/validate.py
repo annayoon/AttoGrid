@@ -11,9 +11,11 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-# 전압/전류/전력/용량 토큰
+# 전압/전류/전력/용량 토큰.
+# 뒤에 ASCII 영문이 오는 경우만 배제(VAC 등)하고, 한자/공백/구두점은 허용.
+# 중국어 도면의 "380V电源"처럼 단위에 한자가 바로 붙는 경우도 탐지하기 위함.
 _RE_ELEC = re.compile(
-    r"(?P<val>\d+\.?\d*)\s*(?P<unit>kV|KV|VAC|VDC|V|kW|KW|W|kVA|KVA|A|MPa)\b"
+    r"(?P<val>\d+\.?\d*)\s*(?P<unit>kVA|KVA|kV|KV|VAC|VDC|V|kW|KW|W|MPa|A)(?![A-Za-z])"
 )
 
 
