@@ -91,11 +91,20 @@ def cmd_translate(args):
         print(f"  · {src[:40]}\n    → {tr[:60]}")
 
     if args.out:
-        mapping = [{"source": s, "translation": t} for s, t in zip(srcs, outs)]
-        Path(args.out).write_text(
-            json.dumps(mapping, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-        print(f"매핑 저장: {args.out} ({len(mapping)}건)")
+        rows = [{"source": s, "translation": t} for s, t in zip(srcs, outs)]
+        if args.out.lower().endswith(".csv"):
+            import csv
+            import io
+            buf = io.StringIO()
+            w = csv.writer(buf)
+            w.writerow(["원문", "번역"])
+            for r in rows:
+                w.writerow([r["source"], r["translation"]])
+            Path(args.out).write_text("﻿" + buf.getvalue(), encoding="utf-8")
+        else:
+            Path(args.out).write_text(
+                json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"저장: {args.out} ({len(rows)}건)")
 
 
 def cmd_rewrite(args):

@@ -151,14 +151,31 @@ function renderValidate(d) {
   status(`검증: 위반 ${d.count}건`);
 }
 
+let lastTranslate = null;
 function renderTranslate(d) {
+  lastTranslate = d;
+  $("#btn-export-csv").disabled = !d.rows.length;
+  $("#btn-export-json").disabled = !d.rows.length;
   const rows = d.rows.map(r =>
     `<tr><td>${esc(r.source)}</td><td>→</td><td>${esc(r.translation)}</td></tr>`).join("");
   $("#translate-out").innerHTML = `
     <div class="cards"><div class="card"><div class="num">${d.count}</div><div class="lbl">번역 (${esc(d.backend)})</div></div></div>
     <table><thead><tr><th>원문</th><th></th><th>번역</th></tr></thead><tbody>${rows}</tbody></table>`;
-  status(`번역 완료: ${d.count}건 (${d.backend})`);
+  status(`번역 완료: ${d.count}건 (${d.backend}) · 내보내기 가능`);
 }
+
+async function exportTranslations(fmt) {
+  if (!lastTranslate || !lastTranslate.rows.length) { status("먼저 번역하세요", "sev-warning"); return; }
+  status(`${fmt.toUpperCase()} 내보내는 중…`, "spin");
+  try {
+    const r = await window.pywebview.api.export_translations(lastTranslate.rows, fmt);
+    status(`저장됨: ${r.path} (${r.count}건)`);
+  } catch (e) {
+    status("내보내기 오류: " + String(e), "sev-error");
+  }
+}
+$("#btn-export-csv").onclick = () => exportTranslations("csv");
+$("#btn-export-json").onclick = () => exportTranslations("json");
 
 // 명령행으로 전달된 파일이 있으면 자동 로드
 window.addEventListener("pywebviewready", async () => {

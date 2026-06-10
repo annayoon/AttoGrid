@@ -172,6 +172,42 @@ class Api:
             "rows": [{"source": s, "translation": t} for s, t in zip(srcs, outs)],
         }
 
+    # --- 번역 결과 내보내기 (CSV/JSON) ---
+    def export_translations(self, rows, fmt: str = "csv", out_path: str | None = None) -> dict:
+        import csv
+        import io
+        import json as _json
+
+        rows = rows or []
+        if not out_path:
+            out_path = self._save_dialog(fmt) or str(ROOT / f"translations.{fmt}")
+        p = Path(out_path).expanduser()
+        if p.suffix.lower() not in (".csv", ".json"):
+            p = p.with_suffix("." + fmt)
+
+        if p.suffix.lower() == ".json":
+            p.write_text(_json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
+        else:  # CSV (엑셀 한글 호환 위해 BOM)
+            buf = io.StringIO()
+            w = csv.writer(buf)
+            w.writerow(["원문", "번역"])
+            for r in rows:
+                w.writerow([r.get("source", ""), r.get("translation", "")])
+            p.write_text("﻿" + buf.getvalue(), encoding="utf-8")
+        return {"path": str(p), "count": len(rows)}
+
+    def _save_dialog(self, fmt: str) -> str | None:
+        try:
+            import webview
+            win = webview.windows[0]
+            r = win.create_file_dialog(
+                webview.SAVE_DIALOG, save_filename=f"translations.{fmt}")
+        except Exception:
+            return None
+        if not r:
+            return None
+        return r if isinstance(r, str) else r[0]
+
 
 def main():
     import sys
