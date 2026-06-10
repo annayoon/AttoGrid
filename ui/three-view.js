@@ -53,7 +53,7 @@ function _initThree(host) {
   const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 8000);
   camera.position.set(110, 100, 145);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(w, h);
   renderer.shadowMap.enabled = true;
@@ -255,6 +255,13 @@ function renderModel3d(data) {
 
   // 범례 업데이트
   _updateLegend(tc);
+}
+
+// ── 현재 뷰 캡처 ────────────────────────────────────────────────
+function capture3d() {
+  if (!_3d) return null;
+  _3d.renderer.render(_3d.scene, _3d.camera);   // 최신 프레임 강제 렌더
+  return _3d.renderer.domElement.toDataURL("image/png");
 }
 
 // ── 범례 ────────────────────────────────────────────────────────

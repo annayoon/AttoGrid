@@ -340,7 +340,33 @@ class Api:
         d = self._load(path)
         return self._rcset(key, attogrid.extrude(d))
 
-    # --- 3D PNG 저장 ---
+    # --- 3D 캔버스 PNG 저장 (현재 뷰 그대로) ---
+    def save_canvas_png(self, data_url: str, out_path: str | None = None) -> dict:
+        """JS canvas.toDataURL()로 받은 base64 PNG를 파일로 저장."""
+        import base64
+        if not data_url or "," not in data_url:
+            return {"error": "유효하지 않은 이미지 데이터"}
+        _, encoded = data_url.split(",", 1)
+        data = base64.b64decode(encoded)
+
+        if not out_path:
+            try:
+                import webview
+                win = webview.windows[0]
+                r = win.create_file_dialog(webview.SAVE_DIALOG, save_filename="3d_view.png")
+                out_path = (r if isinstance(r, str) else r[0]) if r else None
+            except Exception:
+                out_path = None
+        if not out_path:
+            out_path = str(ROOT / "3d_view.png")
+
+        p = Path(out_path).expanduser()
+        if p.suffix.lower() != ".png":
+            p = p.with_suffix(".png")
+        p.write_bytes(data)
+        return {"path": str(p), "size": len(data)}
+
+    # --- 3D matplotlib PNG 저장 (고정 앵글) ---
     def export_3d_image(self, path: str, out_path: str | None = None) -> dict:
         """현재 도면을 3D matplotlib 렌더로 PNG 저장.
 
