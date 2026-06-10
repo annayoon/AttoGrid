@@ -13,8 +13,9 @@ import subprocess
 from pathlib import Path
 from shutil import which
 
-# robust bbox 계산 시 무시할 양끝 분위수
-_CLIP_Q = 0.01
+# bbox 양끝 클립 분위수. dominant_cluster가 좌표계 이상치를 이미 제거하므로
+# 0(=실제 min/max)으로 둔다. 퍼센타일 클립은 시트 가장자리를 잘라낸다.
+_CLIP_Q = 0.0
 _ARC_STEPS = 24
 
 
