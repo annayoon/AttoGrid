@@ -163,6 +163,52 @@ def json_to_svg(
     return svg
 
 
+def json_to_png(
+    drawing, out_path: str | Path,
+    max_count: int = 80000, width_px: int = 2400, dpi: int = 150,
+    highlights: list | None = None,
+) -> str:
+    """dwgread JSON 도면을 PNG로 렌더(matplotlib). highlights 마커 지원."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.collections import LineCollection
+
+    polylines = _polylines(drawing.objects, max_count)
+    polylines = _dominant_cluster(polylines)
+    segs = [pl for pl in polylines if len(pl) >= 2]
+    if not segs:
+        raise RuntimeError("렌더할 도형이 없습니다.")
+    minx, miny, maxx, maxy = _robust_bounds(polylines)
+    w = (maxx - minx) or 1.0
+    h = (maxy - miny) or 1.0
+
+    win = width_px / dpi
+    fig = plt.figure(figsize=(win, max(1.0, win * h / w)), dpi=dpi)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.set_facecolor("#0f1419")
+    fig.set_facecolor("#0f1419")
+    ax.add_collection(LineCollection(segs, linewidths=0.25, colors="#8fd3ff"))
+
+    if highlights:
+        for hgl in highlights:
+            hx, hy = hgl["x"], hgl["y"]          # matplotlib은 Y 위로(+) → 뒤집지 않음
+            col = hgl.get("color", "#f85149")
+            ax.plot(hx, hy, marker="o", mfc="none", mec=col, mew=1.2, ms=10)
+            ax.annotate(str(hgl.get("label", "")), (hx, hy),
+                        textcoords="offset points", xytext=(6, 6),
+                        color=col, fontsize=8)
+
+    ax.set_xlim(minx, maxx)
+    ax.set_ylim(miny, maxy)
+    ax.set_aspect("equal")
+    ax.axis("off")
+    out_path = Path(out_path)
+    fig.savefig(out_path, dpi=dpi, facecolor="#0f1419")
+    plt.close(fig)
+    return str(out_path)
+
+
 def to_svg(dwg_path: str | Path, out_path: str | Path) -> Path:
     """dwg2SVG로 SVG 이미지컷 생성. (부분 렌더 가능성 있음)"""
     if not which("dwg2SVG"):

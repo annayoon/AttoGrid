@@ -117,6 +117,20 @@ function renderPreview(d) {
 
 $("#btn-fit").onclick = () => resetPanZoom();
 
+async function exportImage(fmt) {
+  if (!needFile()) return;
+  const markers = $("#img-markers").checked;
+  status(`${fmt.toUpperCase()} 내보내는 중…${markers ? " (마커 포함)" : ""}`, "spin");
+  try {
+    const r = await window.pywebview.api.export_image(currentPath, fmt, markers);
+    status(`저장됨: ${r.path}`);
+  } catch (e) {
+    status("이미지 내보내기 오류: " + String(e), "sev-error");
+  }
+}
+$("#btn-png").onclick = () => exportImage("png");
+$("#btn-svg").onclick = () => exportImage("svg");
+
 function renderTexts(d) {
   const rows = d.rows.map(r =>
     `<tr><td><span class="tag ${r.lang}">${r.lang}</span></td>

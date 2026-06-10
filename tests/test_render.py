@@ -40,8 +40,17 @@ def test_highlights_draw_markers():
     assert "420V" in svg               # 라벨
 
 
+def test_json_to_png(tmp_path=None):
+    import tempfile
+    out = Path(tempfile.mkdtemp()) / "d.png"
+    p = render.json_to_png(_draw(), str(out), width_px=400, dpi=80,
+                           highlights=[{"x": 5, "y": 2, "label": "420V"}])
+    assert Path(p).exists() and Path(p).stat().st_size > 0
+
+
 if __name__ == "__main__":
     test_json_to_svg_basic()
     test_model_only_excludes_block_defs()
     test_highlights_draw_markers()
+    test_json_to_png()
     print("PASS render 테스트")

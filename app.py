@@ -82,6 +82,25 @@ class Api:
             d, max_count=max_count, width=1400, highlights=highlights)
         return {"svg": svg, "polylines": svg.count("<polyline")}
 
+    # --- 도면 이미지 내보내기 (PNG/SVG) ---
+    def export_image(self, path: str, fmt: str = "png",
+                     with_markers: bool = False, out_path: str | None = None) -> dict:
+        d = self._load(path)
+        highlights = None
+        if with_markers:
+            highlights = self.locate_voltages(path, include_ok=True)["items"]
+        if not out_path:
+            out_path = self._save_dialog(fmt) or str(ROOT / f"drawing.{fmt}")
+        p = Path(out_path).expanduser()
+        if p.suffix.lower() not in (".png", ".svg"):
+            p = p.with_suffix("." + fmt)
+
+        if p.suffix.lower() == ".svg":
+            attogrid.render.json_to_svg(d, out_path=str(p), highlights=highlights)
+        else:
+            attogrid.render.json_to_png(d, str(p), highlights=highlights)
+        return {"path": str(p)}
+
     # --- 전압의 도면상 위치 찾기 ---
     # include_ok=False: 위반(비표준)만 빨강. True: 정상 전압도 초록으로 표시.
     def locate_voltages(self, path: str, include_ok: bool = False) -> dict:
