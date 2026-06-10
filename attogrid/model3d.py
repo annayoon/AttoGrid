@@ -200,3 +200,121 @@ def extrude(drawing, max_count: int = 4000, min_pts: int = 3, max_pts: int = 16,
         "span": round(span, 1),
         "type_counts": counts,
     }
+
+
+# ── 3D PNG 저장 ───────────────────────────────────────────────────
+
+_TYPE_VIS = {
+    "zone":      dict(color="#152d45", ec="#2a5a8a", alpha=0.55, hm=0.22),
+    "equipment": dict(color="#00c8a0", ec="#004433", alpha=0.92, hm=2.0),
+    "rack":      dict(color="#4da3ff", ec="#0a1830", alpha=0.90, hm=3.0),
+}
+
+
+def render_3d_png(
+    model: dict,
+    out_path: str | Path,
+    width_px: int = 2240,
+    dpi: int = 160,
+    elev: float = 32.0,
+    azim: float = -48.0,
+) -> str:
+    """extrude() 결과를 matplotlib 3D로 PNG 저장.
+
+    Args:
+        model:    extrude() 반환값
+        out_path: 저장 경로 (.png)
+        width_px: 이미지 너비(픽셀)
+        dpi:      해상도
+        elev/azim: 카메라 앙각/방위각 (도)
+
+    Returns:
+        저장된 절대 경로 문자열
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+    import numpy as np
+
+    base_h = model.get("base_height", 4.0)
+    objects = model.get("objects", [])
+    tc = model.get("type_counts", {})
+
+    win = width_px / dpi
+    fig = plt.figure(figsize=(win, win * 0.64), facecolor="#080e16")
+    ax = fig.add_subplot(111, projection="3d", facecolor="#080e16")
+
+    for obj_type in ("zone", "equipment", "rack"):
+        cfg = _TYPE_VIS[obj_type]
+        polys = []
+        for obj in objects:
+            if obj["type"] != obj_type:
+                continue
+            pts = np.array(obj["points"])
+            if len(pts) < 3:
+                continue
+            h = base_h * cfg["hm"]
+            n = len(pts)
+            polys.append([(p[0], p[1], h) for p in pts])   # 윗면
+            for i in range(n):                               # 측면
+                j = (i + 1) % n
+                polys.append([
+                    (pts[i][0], pts[i][1], 0), (pts[j][0], pts[j][1], 0),
+                    (pts[j][0], pts[j][1], h), (pts[i][0], pts[i][1], h),
+                ])
+        if polys:
+            ax.add_collection3d(Poly3DCollection(
+                polys,
+                facecolor=cfg["color"],
+                edgecolor=cfg["ec"] if obj_type != "zone" else "none",
+                linewidth=0.12,
+                alpha=cfg["alpha"],
+                zsort="average",
+            ))
+
+    all_pts = [p for o in objects for p in o["points"]]
+    if all_pts:
+        xs = [p[0] for p in all_pts]; ys = [p[1] for p in all_pts]
+        pad = (max(xs) - min(xs)) * 0.04
+        ax.set_xlim(min(xs) - pad, max(xs) + pad)
+        ax.set_ylim(min(ys) - pad, max(ys) + pad)
+    ax.set_zlim(0, base_h * 3.5)
+
+    # 스타일
+    for pane in (ax.xaxis.pane, ax.yaxis.pane, ax.zaxis.pane):
+        pane.fill = False
+        pane.set_edgecolor("#1a2a3a")
+    for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
+        axis._axinfo["grid"]["color"] = "#1a2a3a"
+    ax.tick_params(colors="#2a4060", labelsize=0, length=0)
+    ax.set_xlabel(""); ax.set_ylabel(""); ax.set_zlabel("")
+    ax.view_init(elev=elev, azim=azim)
+
+    # 범례
+    handles = [
+        mpatches.Patch(facecolor="#4da3ff", edgecolor="#0a1830", linewidth=0.5,
+                       label=f"Rack  ×{tc.get('rack', 0):,}"),
+        mpatches.Patch(facecolor="#00c8a0", edgecolor="#004433", linewidth=0.5,
+                       label=f"Equipment  ×{tc.get('equipment', 0)}"),
+        mpatches.Patch(facecolor="#152d45", edgecolor="#2a5a8a", linewidth=0.8,
+                       label=f"Zone  ×{tc.get('zone', 0)}"),
+    ]
+    ax.legend(handles=handles, loc="upper left",
+              framealpha=0.4, facecolor="#0a1420", edgecolor="#2d3845",
+              labelcolor="#b0c8e0", fontsize=max(7, dpi // 22), borderpad=0.8)
+
+    ax.set_title("AttoGrid 3D  —  Data Center Floor Plan",
+                 color="#8fd3ff", fontsize=max(9, dpi // 16), pad=12, fontweight="bold")
+
+    fig.text(0.97, 0.97,
+             f"{len(objects):,} objects · span {model.get('span', 0):,.0f}",
+             ha="right", va="top", color="#4a6a8a", fontsize=max(7, dpi // 22))
+
+    from pathlib import Path as _Path
+    fig.tight_layout(pad=0.8)
+    out = _Path(out_path)
+    fig.savefig(out, dpi=dpi, facecolor="#080e16", bbox_inches="tight")
+    plt.close(fig)
+    return str(out.resolve())

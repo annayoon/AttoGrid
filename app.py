@@ -293,6 +293,36 @@ class Api:
         d = self._load(path)
         return attogrid.extrude(d)
 
+    # --- 3D PNG 저장 ---
+    def export_3d_image(self, path: str, out_path: str | None = None) -> dict:
+        """현재 도면을 3D matplotlib 렌더로 PNG 저장.
+
+        out_path 미지정 시 저장 다이얼로그 → 그것도 없으면 도면 옆에 _3d.png 생성.
+        """
+        d = self._load(path)
+        model = attogrid.extrude(d)
+        if not model["count"]:
+            return {"error": "3D로 변환할 폴리라인이 없습니다."}
+
+        if not out_path:
+            # 저장 다이얼로그 시도
+            try:
+                import webview
+                win = webview.windows[0]
+                stem = Path(path).stem
+                r = win.create_file_dialog(
+                    webview.SAVE_DIALOG, save_filename=f"{stem}_3d.png")
+                out_path = (r if isinstance(r, str) else r[0]) if r else None
+            except Exception:
+                out_path = None
+
+        if not out_path:
+            out_path = str(Path(path).with_stem(Path(path).stem + "_3d").with_suffix(".png"))
+
+        saved = attogrid.render_3d_png(model, out_path)
+        return {"path": saved, "count": model["count"],
+                "type_counts": model["type_counts"]}
+
     # --- 검증 ---
     def validate(self, path: str) -> dict:
         d = self._load(path)

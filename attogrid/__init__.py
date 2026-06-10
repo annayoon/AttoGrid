@@ -7,7 +7,7 @@ from .translate import (
     DeepLTranslator, ArgosTranslator, MockTranslator, TranslationCache,
 )
 from .rewrite import translate_dxf
-from .model3d import extrude
+from .model3d import extrude, render_3d_png
 from .partition import partition
 from . import render
 
@@ -19,6 +19,6 @@ __all__ = [
     "validate", "load_rules", "parse_electrical", "explain_voltage", "Finding",
     "translate_texts", "load_glossary", "glossary_translate", "mask", "unmask",
     "DeepLTranslator", "ArgosTranslator", "MockTranslator", "TranslationCache",
-    "translate_dxf", "extrude", "partition",
+    "translate_dxf", "extrude", "render_3d_png", "partition",
     "render",
 ]

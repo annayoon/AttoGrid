@@ -145,6 +145,18 @@ $("#btn-overlay").onclick = async () => {
   } catch (e) { status("번역 얹기 오류: " + String(e), "sev-error"); }
 };
 
+// 3D PNG 저장
+$("#btn-3d-png").onclick = async () => {
+  if (!needFile()) return;
+  status("3D 이미지 렌더 중… (잠시 기다려주세요)", "spin");
+  try {
+    const r = await window.pywebview.api.export_3d_image(currentPath);
+    if (r.error) { status("3D 저장 오류: " + r.error, "sev-error"); return; }
+    const tc = r.type_counts || {};
+    status(`3D PNG 저장됨: ${r.path}  (rack×${tc.rack||0} / equip×${tc.equipment||0} / zone×${tc.zone||0})`);
+  } catch (e) { status("3D 저장 오류: " + String(e), "sev-error"); }
+};
+
 // 격자 옵션은 grid 방식일 때만 표시
 function syncGridOpts() { $("#grid-opts").style.display = $("#part-method").value === "grid" ? "" : "none"; }
 $("#part-method").onchange = syncGridOpts;
