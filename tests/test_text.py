@@ -52,6 +52,25 @@ def test_required_keywords_dict():
     assert not [x for x in validate(["接地 母线"], rules) if x.rule == "required_keywords"]
 
 
+def test_current_breaker_check():
+    from attogrid.validate import _check_current
+    assert _check_current(["Ijs=4000A", "3200A/4P"], {})       # 부족
+    assert not _check_current(["Ijs=2161A", "3600A/4P"], {})   # 정상
+
+
+def test_redundancy_check():
+    from attogrid.validate import _check_redundancy
+    cfg = {"redundancy_check": {"transfer": ["ATS"], "backup": ["发电"]}}
+    assert len(_check_redundancy(["배전반"], cfg)) == 2          # 둘 다 누락
+    assert not _check_redundancy(["ATS", "发电机"], cfg)         # 둘 다 존재
+
+
+def test_cooling_info():
+    from attogrid.validate import _check_cooling
+    f = _check_cooling(["制冷量22.0KW", "制冷量5.5KW"], {})
+    assert f and f[0].severity == "info" and "27.5" in f[0].message
+
+
 def test_explain_voltage_control_and_typo():
     from attogrid.validate import explain_voltage
     allowed = {"380V", "400V", "220V"}

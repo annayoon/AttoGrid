@@ -65,6 +65,7 @@ tr:hover td { background: var(--panel); }
 .detail { color: var(--fg); font-size: 12.5px; line-height: 1.5; max-width: 460px; }
 .sev-error { color: var(--err); font-weight: 600; }
 .sev-warning { color: var(--warn); font-weight: 600; }
+.sev-info { color: var(--accent); font-weight: 600; }
 .bar { height: 8px; background: var(--accent); border-radius: 4px; }
 
 footer { padding: 8px 20px; border-top: 1px solid var(--line); background: var(--panel); color: var(--muted); font-size: 12px; }

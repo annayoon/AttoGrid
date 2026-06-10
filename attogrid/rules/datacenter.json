@@ -8,5 +8,11 @@
   },
   "power_factor": 0.9,
   "transformer_load_check": true,
+  "current_check": true,
+  "redundancy_check": {
+    "transfer": ["ATS", "双电源"],
+    "backup": ["发电", "UPS", "备用", "柴发"]
+  },
+  "cooling_check": true,
   "forbidden_patterns": ["TODO", "미정", "\\?\\?\\?"]
 }

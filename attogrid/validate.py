@@ -120,7 +120,16 @@ def validate(texts: list[str], rules: dict) -> list[Finding]:
     # 규칙 3: 변압기 용량 vs 계산 부하 정합성
     findings.extend(_check_transformer_load(texts, rules))
 
-    # 규칙 4: 금지 패턴 (예: TODO, 미정, ???)
+    # 규칙 4: 전류 vs 차단기 정격
+    findings.extend(_check_current(texts, rules))
+
+    # 규칙 5: 이중화(절체장치 + 예비전원) 구성
+    findings.extend(_check_redundancy(texts, rules))
+
+    # 규칙 6: 냉방 용량(정보성)
+    findings.extend(_check_cooling(texts, rules))
+
+    # 규칙 7: 금지 패턴 (예: TODO, 미정, ???)
     for pat in rules.get("forbidden_patterns", []):
         rx = re.compile(pat)
         for s in texts:
@@ -172,3 +181,79 @@ def _check_transformer_load(texts: list[str], rules: dict) -> list[Finding]:
             f"단일 변압기 공급 기준이며, 이중화·분산 공급이면 변압기별 부하 배분을 확인하세요.",
         )]
     return []
+
+
+_RE_IJS = re.compile(r"Ijs\s*=\s*(\d+\.?\d*)\s*A", re.I)        # 계산 전류
+_RE_IN = re.compile(r"\bIn\s*=\s*(\d+\.?\d*)\s*A", re.I)        # 차단기 정격
+_RE_BRK = re.compile(r"(\d+\.?\d*)\s*A\s*/\s*\d+\s*P", re.I)    # 3200A/4P
+_RE_COOL = re.compile(r"制冷量\s*(\d+\.?\d*)\s*KW", re.I)        # 냉방 용량
+
+
+def _check_current(texts: list[str], rules: dict) -> list[Finding]:
+    """계산 전류가 차단기/보호기기 정격을 넘지 않는지 점검(최대값 기준)."""
+    if not rules.get("current_check", True):
+        return []
+    ijs, brks = [], []
+    for t in texts:
+        for m in _RE_IJS.finditer(t):
+            ijs.append((float(m.group(1)), t))
+        for m in _RE_IN.finditer(t):
+            brks.append(float(m.group(1)))
+        for m in _RE_BRK.finditer(t):
+            brks.append(float(m.group(1)))
+    if not ijs or not brks:
+        return []
+    max_i, src = max(ijs, key=lambda x: x[0])
+    max_b = max(brks)
+    if max_i > max_b:
+        return [Finding(
+            "warning", "current_breaker",
+            f"차단기 정격 부족 가능성: 계산전류 {max_i:.0f}A > 최대 차단기 {max_b:.0f}A",
+            src[:60],
+            f"계산 전류 {max_i:.0f}A가 도면 최대 차단기 정격 {max_b:.0f}A를 초과합니다. "
+            f"보호기기 정격(In ≥ Ijs)과 케이블 허용전류를 확인하세요.",
+        )]
+    return []
+
+
+def _check_redundancy(texts: list[str], rules: dict) -> list[Finding]:
+    """이중화 구성(절체장치 + 예비전원) 표기 존재 점검."""
+    cfg = rules.get("redundancy_check")
+    if not cfg:
+        return []
+    transfer = cfg.get("transfer", ["ATS", "双电源"])
+    backup = cfg.get("backup", ["发电", "UPS", "备用"])
+    out = []
+    if not any(k in s for s in texts for k in transfer):
+        out.append(Finding(
+            "warning", "redundancy", "이중화 절체장치 미확인", "",
+            f"절체장치({'/'.join(transfer)}) 표기를 찾지 못했습니다. "
+            f"이중전원 자동절체(ATS 등) 구성을 확인하세요.",
+        ))
+    if not any(k in s for s in texts for k in backup):
+        out.append(Finding(
+            "warning", "redundancy", "예비/비상 전원 미확인", "",
+            f"예비 전원({'/'.join(backup)}) 표기를 찾지 못했습니다. "
+            f"발전기·UPS 등 백업 전원 구성을 확인하세요.",
+        ))
+    return out
+
+
+def _check_cooling(texts: list[str], rules: dict) -> list[Finding]:
+    """냉방 용량 요약(정보성). 도면 수량/배치는 수동 확인 필요."""
+    if not rules.get("cooling_check", True):
+        return []
+    cool = sum(float(m.group(1)) for t in texts for m in _RE_COOL.finditer(t))
+    if cool <= 0:
+        return []
+    loads = [float(m.group(1)) for t in texts for m in _RE_PJS.finditer(t)]
+    it = max(loads) if loads else 0
+    detail = (f"도면에 표기된 냉방 용량(制冷量) 합계는 약 {cool:.1f}kW입니다. "
+              f"이는 서로 다른 기종 정격의 단순 합이며 실제 설치 수량은 도면에서 확인해야 합니다.")
+    if it:
+        detail += (f" 전기 계산부하 최대 {it:.0f}kW가 발열로 환산된다고 보면 냉방 "
+                   f"여력을 비교 검토하세요.")
+    return [Finding(
+        "info", "cooling",
+        f"냉방 용량 합계 약 {cool:.1f}kW (수동 확인 권장)", "", detail,
+    )]
