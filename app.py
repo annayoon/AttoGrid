@@ -116,11 +116,14 @@ class Api:
                 seen.add(key)
                 if ok:
                     n_ok += 1
+                    detail = f"{norm}: 표준 전압(정상)"
                 else:
                     n_bad += 1
+                    _, detail = attogrid.explain_voltage(norm, allowed, clean)
                 items.append({
                     "voltage": norm, "text": clean[:50], "x": pt[0], "y": pt[1],
-                    "label": norm, "ok": ok,
+                    "label": norm, "ok": ok, "detail": detail,
+                    "tooltip": f"{norm} · {clean[:40]} — {detail}",
                     "color": "#3fb950" if ok else "#f85149",  # 초록=정상, 빨강=위반
                 })
         return {"count": len(items), "ok": n_ok, "violations": n_bad, "items": items}
@@ -141,7 +144,7 @@ class Api:
             "count": len(findings),
             "findings": [
                 {"severity": f.severity, "rule": f.rule,
-                 "message": f.message, "context": f.context}
+                 "message": f.message, "context": f.context, "detail": f.detail}
                 for f in findings
             ],
         }

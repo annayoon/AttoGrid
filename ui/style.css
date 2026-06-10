@@ -62,6 +62,7 @@ tr:hover td { background: var(--panel); }
 .tag.ko { background: #133a1c; color: #56d364; }
 .tag.en { background: #12263b; color: #6cb6ff; }
 .tag.sym { background: #2a2a2a; color: #999; }
+.detail { color: var(--fg); font-size: 12.5px; line-height: 1.5; max-width: 460px; }
 .sev-error { color: var(--err); font-weight: 600; }
 .sev-warning { color: var(--warn); font-weight: 600; }
 .bar { height: 8px; background: var(--accent); border-radius: 4px; }

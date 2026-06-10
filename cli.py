@@ -55,7 +55,9 @@ def cmd_validate(args):
         return
     print(f"  ⚠ 위반 {len(findings)}건:")
     for f in findings:
-        print(f"    [{f.severity}/{f.rule}] {f.message}  {('· ' + f.context) if f.context else ''}")
+        print(f"    [{f.severity}] {f.message}  {('· 도면: ' + f.context) if f.context else ''}")
+        if f.detail:
+            print(f"        → {f.detail}")
 
 
 def cmd_translate(args):

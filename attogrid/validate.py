@@ -25,6 +25,52 @@ class Finding:
     rule: str
     message: str
     context: str = ""
+    detail: str = ""   # 무엇이/왜 틀렸는지 구체 설명
+
+
+# 제어·신호용 저전압 상한(이하면 배전 전압이 아닌 제어회로로 간주)
+_CONTROL_MAX = 48.0
+
+
+def explain_voltage(norm: str, allowed: set, context: str = "") -> tuple[str, str]:
+    """비표준 전압에 대한 (요약, 상세설명)을 만든다."""
+    try:
+        v = float(norm.rstrip("Vv"))
+    except ValueError:
+        return ("비표준 전압", f"{norm}은(는) 표준 목록에 없습니다.")
+
+    nums = sorted({float(a.rstrip("Vv")) for a in allowed})
+    nearest = min(nums, key=lambda a: abs(a - v)) if nums else v
+    diff_pct = abs(nearest - v) / nearest * 100 if nearest else 0.0
+    near_s = f"{int(nearest)}V" if nearest.is_integer() else f"{nearest}V"
+
+    # 1) 제어·신호 저전압
+    if v <= _CONTROL_MAX:
+        return (
+            f"{norm}: 제어·신호용 저전압",
+            f"{norm}는 전력 배전 전압이 아니라 제어·신호용(예: 24V DC 제어, "
+            f"감지기·비상정지 회로)으로 보입니다. 배전 전압 검증 대상이 아니라면 "
+            f"규칙의 allowed_voltages에 제어전압을 추가하거나 제외하세요.",
+        )
+
+    # 2) 표준값에 근접 → 오타/무부하 의심
+    if diff_pct <= 6:
+        hint = ""
+        if any(k in context for k in ("KVA", "kVA", "变压器", "TR", "변압기")):
+            hint = " 변압기 표기 옆이라면 2차 무부하 전압일 수 있습니다."
+        return (
+            f"{norm}: 표준 {near_s}에서 {diff_pct:.0f}% 벗어남",
+            f"{norm}는 표준 {near_s}와 {diff_pct:.0f}% 차이입니다. 오타이거나 공칭/"
+            f"무부하 전압 차이일 수 있으니 {near_s}가 맞는지 확인하세요.{hint}",
+        )
+
+    # 3) 그 외 — 표준 배전 전압 아님
+    return (
+        f"{norm}: 표준 배전 전압 아님",
+        f"{norm}는 허용 배전 전압({', '.join(f'{int(n)}V' for n in nums)})에 "
+        f"없는 값입니다. 가장 가까운 표준은 {near_s}입니다. 도면 표기 또는 기기 "
+        f"사양을 확인하세요.",
+    )
 
 
 def parse_electrical(texts) -> list[tuple[str, str, str]]:
@@ -54,10 +100,10 @@ def validate(texts: list[str], rules: dict) -> list[Finding]:
                 norm = f"{int(float(val))}V" if float(val).is_integer() else f"{val}V"
                 if norm not in allowed and norm not in seen_volts:
                     seen_volts.add(norm)
+                    summary, detail = explain_voltage(norm, allowed, src)
                     findings.append(Finding(
                         "warning", "allowed_voltages",
-                        f"비표준 전압 {norm} (허용: {sorted(allowed)})",
-                        src[:60],
+                        summary, src[:60], detail,
                     ))
 
     # 규칙 2: 필수 키워드 존재 여부 (예: 이중전원, 接地 등)

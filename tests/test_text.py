@@ -34,6 +34,19 @@ def test_validate_flags_nonstandard_voltage():
     assert any(f.rule == "allowed_voltages" for f in findings)
 
 
+def test_explain_voltage_control_and_typo():
+    from attogrid.validate import explain_voltage
+    allowed = {"380V", "400V", "220V"}
+    # 제어 전압
+    s, d = explain_voltage("24V", allowed)
+    assert "제어" in s and "제어" in d
+    # 표준 근접(420V↔400V = 5%)
+    s, d = explain_voltage("420V", allowed, "420V 1300KVA")
+    assert "400V" in d and ("5%" in s or "5%" in d)
+    # 변압기 힌트
+    assert "무부하" in d
+
+
 def test_mask_protects_identifiers_and_units():
     # 식별자/전압값은 <x>로 보호되어야 한다
     m = mask("额定电压 380V 接 CIRCUIT-A-12", {})

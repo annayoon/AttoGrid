@@ -135,11 +135,13 @@ function renderValidate(d) {
     $("#validate-out").innerHTML = `<div class="empty" style="color:var(--ok)">✓ 위반 없음 — 규칙셋: ${esc(d.ruleset)}</div>`;
   } else {
     const rows = d.findings.map(f =>
-      `<tr><td class="sev-${f.severity}">${f.severity}</td><td class="mono">${esc(f.rule)}</td>
-       <td>${esc(f.message)}</td><td class="mono">${esc(f.context)}</td></tr>`).join("");
+      `<tr><td class="sev-${f.severity}">${f.severity}</td>
+       <td>${esc(f.message)}</td>
+       <td class="detail">${esc(f.detail || "")}</td>
+       <td class="mono">${esc(f.context)}</td></tr>`).join("");
     $("#validate-out").innerHTML = `
       <div class="cards"><div class="card"><div class="num sev-warning">${d.count}</div><div class="lbl">위반</div></div></div>
-      <table><thead><tr><th>심각도</th><th>규칙</th><th>메시지</th><th>근거</th></tr></thead><tbody>${rows}</tbody></table>`;
+      <table><thead><tr><th>심각도</th><th>요약</th><th>무엇이 / 왜 틀렸나</th><th>도면 표기</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
   status(`검증: 위반 ${d.count}건`);
 }
