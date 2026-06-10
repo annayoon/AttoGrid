@@ -64,6 +64,26 @@ def test_translate_rows_include_position():
     assert "X,Y" in txt and "100.5" in txt
 
 
+def test_export_section_translations():
+    import tempfile
+    # 두 시트(프레임) + 각 시트 안에 중국어 텍스트
+    def rect(ox):
+        return {"entity": "LWPOLYLINE", "entmode": 2, "flag": 1,
+                "points": [[ox, 0], [ox + 100, 0], [ox + 100, 150], [ox, 150]]}
+    data = {"OBJECTS": [
+        rect(0), rect(300),
+        {"entity": "TEXT", "entmode": 2, "text_value": "气体灭火系统", "ins_pt": [40, 40, 0], "height": 5},
+        {"entity": "TEXT", "entmode": 2, "text_value": "额定电压", "ins_pt": [340, 40, 0], "height": 5},
+    ]}
+    api = Api()
+    api._cache["p"] = attogrid.Drawing(source=Path("p"), data=data, objects=data["OBJECTS"])
+    d = Path(tempfile.mkdtemp())
+    r = api.export_section_translations("p", method="frame", backend="mock", out_dir=str(d))
+    assert r["count"] == 2          # 시트 2개 → CSV 2개
+    txt = Path(r["files"][0]).read_text(encoding="utf-8")
+    assert "원문,번역,X,Y" in txt
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

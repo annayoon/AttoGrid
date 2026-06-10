@@ -166,6 +166,19 @@ function renderSectionList(secs) {
     </tr></thead><tbody>${rows}</tbody></table>`;
 }
 
+// 시트별 번역 CSV (번역 탭의 엔진 사용)
+$("#btn-sec-trans").onclick = async () => {
+  if (!needFile()) return;
+  const method = $("#part-method").value;
+  const rows = parseInt($("#grid-rows").value) || 2, cols = parseInt($("#grid-cols").value) || 2;
+  const backend = $("#tr-backend").value;
+  status(`시트별 번역 CSV 생성 중… (${backend})${backend !== "mock" ? " — 시간이 걸릴 수 있습니다" : ""}`, "spin");
+  try {
+    const r = await window.pywebview.api.export_section_translations(currentPath, method, backend, rows, cols);
+    status(`시트별 번역 CSV ${r.count}개 저장됨: ${r.dir}`);
+  } catch (e) { status("시트별 번역 오류: " + String(e), "sev-error"); }
+};
+
 // 구획별 이미지 저장
 $("#btn-sections").onclick = async () => {
   if (!needFile()) return;

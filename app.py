@@ -154,6 +154,54 @@ class Api:
                 continue
         return {"count": len(files), "dir": str(outd), "files": files}
 
+    # --- 구획(시트)별 번역 CSV ---
+    def export_section_translations(self, path: str, method: str = "auto",
+                                    backend: str = "argos", rows: int = 2, cols: int = 2,
+                                    limit: int = 0, out_dir: str | None = None) -> dict:
+        import csv
+        import io
+        from attogrid.partition import section_title
+
+        d = self._load(path)
+        secs = attogrid.partition(d, method=method, rows=rows, cols=cols)
+        if not secs:
+            return {"count": 0, "dir": None, "files": []}
+        items = [it for it in attogrid.extract_texts(d) if it.translatable and it.x is not None]
+        glossary = attogrid.load_glossary(GLOSSARY)
+        tr = (attogrid.MockTranslator() if backend == "mock"
+              else attogrid.DeepLTranslator() if backend == "deepl"
+              else attogrid.ArgosTranslator())
+        cache = attogrid.TranslationCache(Path(ROOT / ".attogrid_cache.json")).load()
+
+        if not out_dir:
+            out_dir = self._folder_dialog() or str(ROOT / "translations")
+        outd = Path(out_dir).expanduser()
+        outd.mkdir(parents=True, exist_ok=True)
+
+        files = []
+        for i, s in enumerate(secs, 1):
+            b = s["bounds"]
+            inside = [it for it in items
+                      if b[0] <= it.x <= b[2] and b[1] <= it.y <= b[3]]
+            if limit:
+                inside = inside[:limit]
+            if not inside:
+                continue
+            srcs = [it.text for it in inside]
+            outs = attogrid.translate_texts(srcs, tr, glossary=glossary,
+                                            target="ko", source="zh", cache=cache)
+            title = section_title(d, b) or s["label"]
+            safe = "".join(c for c in title if c.isalnum())[:20] or s["label"].replace(" ", "")
+            fp = outd / f"{i:02d}_{safe}.csv"
+            buf = io.StringIO()
+            w = csv.writer(buf)
+            w.writerow(["원문", "번역", "X", "Y"])
+            for it, t in zip(inside, outs):
+                w.writerow([it.text, t, it.x, it.y])
+            fp.write_text("﻿" + buf.getvalue(), encoding="utf-8")
+            files.append(str(fp))
+        return {"count": len(files), "dir": str(outd), "files": files, "backend": backend}
+
     def _folder_dialog(self) -> str | None:
         try:
             import webview

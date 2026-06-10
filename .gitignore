@@ -27,6 +27,7 @@ out_*.png
 /output/
 .attogrid_cache.json
 /sections/
+/translations/
 drawing.png
 drawing.svg
 translations.csv
