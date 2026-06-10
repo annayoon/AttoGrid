@@ -48,6 +48,23 @@ document.querySelectorAll("[data-run]").forEach(b => {
   b.onclick = () => run(b.dataset.run);
 });
 
+// 위반 전압을 도면에 표시
+$("#btn-locate").onclick = async () => {
+  if (!needFile()) return;
+  status("위반 전압 위치 탐색 중…", "spin");
+  try {
+    const loc = await window.pywebview.api.locate_voltages(currentPath);
+    if (!loc.count) { status("표시할 위반 전압이 없습니다"); return; }
+    status(`도면 렌더 + 마커 ${loc.count}곳…`, "spin");
+    const r = await window.pywebview.api.render(currentPath, 50000, loc.items);
+    $("#preview-out").innerHTML = r.svg;
+    document.querySelector('.tab[data-tab="preview"]').click();
+    status(`위반 전압 ${loc.count}곳을 도면에 빨간 마커로 표시`);
+  } catch (e) {
+    status("위치 표시 오류: " + String(e), "sev-error");
+  }
+};
+
 function needFile() {
   if (!currentPath) { status("먼저 도면을 여세요", "sev-warning"); return false; }
   return true;

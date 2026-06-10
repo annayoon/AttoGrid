@@ -76,10 +76,44 @@ class Api:
         return {"total": len(items), "dist": dict(dist), "rows": rows}
 
     # --- 도면 미리보기 (JSON 지오메트리 직접 렌더) ---
-    def render(self, path: str, max_count: int = 50000) -> dict:
+    def render(self, path: str, max_count: int = 50000, highlights=None) -> dict:
         d = self._load(path)
-        svg = attogrid.render.json_to_svg(d, max_count=max_count, width=1400)
+        svg = attogrid.render.json_to_svg(
+            d, max_count=max_count, width=1400, highlights=highlights)
         return {"svg": svg, "polylines": svg.count("<polyline")}
+
+    # --- 위반 전압의 도면상 위치 찾기 ---
+    def locate_voltages(self, path: str) -> dict:
+        d = self._load(path)
+        rules = attogrid.load_rules(RULES)
+        allowed = set(rules.get("allowed_voltages", []))
+        items, seen = [], set()
+        for o in d.objects:
+            if o.get("entmode") != 2:
+                continue
+            t = o.get("entity")
+            raw = o.get("text_value") if t == "TEXT" else (
+                o.get("text") if t == "MTEXT" else None)
+            if not isinstance(raw, str):
+                continue
+            clean = attogrid.clean_mtext(raw)
+            pt = o.get("ins_pt")
+            if not pt:
+                continue
+            for val, unit, _ in attogrid.parse_electrical([clean]):
+                if unit.upper() != "V":
+                    continue
+                fv = float(val)
+                norm = f"{int(fv)}V" if fv.is_integer() else f"{val}V"
+                if norm in allowed:
+                    continue
+                key = (norm, round(pt[0], 1), round(pt[1], 1))
+                if key in seen:
+                    continue
+                seen.add(key)
+                items.append({"voltage": norm, "text": clean[:50],
+                              "x": pt[0], "y": pt[1], "label": norm})
+        return {"count": len(items), "items": items}
 
     # --- 2D→3D 압출 ---
     def model3d(self, path: str) -> dict:

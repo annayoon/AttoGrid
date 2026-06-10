@@ -93,8 +93,13 @@ def _robust_bounds(polylines) -> tuple[float, float, float, float]:
 def json_to_svg(
     drawing, out_path: str | Path | None = None,
     max_count: int = 60000, width: int = 1400, stroke: float = 0.0,
+    highlights: list | None = None,
 ) -> str:
-    """dwgread JSON 도면을 SVG 문자열로 렌더(필요 시 파일 저장)."""
+    """dwgread JSON 도면을 SVG 문자열로 렌더(필요 시 파일 저장).
+
+    highlights: [{"x":.., "y":.., "label":..}] 모델 좌표. 도면과 같은 변환으로
+    위치에 마커(원+십자+라벨)를 그린다(예: 비표준 전압 위치).
+    """
     polylines = _polylines(drawing.objects, max_count)
     polylines = _dominant_cluster(polylines)
     minx, miny, maxx, maxy = _robust_bounds(polylines)
@@ -120,7 +125,30 @@ def json_to_svg(
         if pts.count(",") >= 1 and " " in pts:
             lines.append(f'<polyline points="{pts}"/>')
             drawn += 1
-    lines.append("</g></svg>")
+    lines.append("</g>")
+
+    # 하이라이트 마커
+    if highlights:
+        r = w * 0.012
+        fs = w * 0.016
+        lines.append(f'<g transform="translate({-minx:.2f},0)" '
+                     f'font-family="sans-serif" font-size="{fs:.1f}">')
+        for hgl in highlights:
+            hx, hy = hgl["x"], maxy - hgl["y"]
+            lab = str(hgl.get("label", "")).replace("&", "&amp;").replace("<", "&lt;")
+            lines.append(
+                f'<circle cx="{hx:.1f}" cy="{hy:.1f}" r="{r:.1f}" '
+                f'fill="none" stroke="#f85149" stroke-width="{r*0.18:.2f}"/>'
+                f'<line x1="{hx-r*1.6:.1f}" y1="{hy:.1f}" x2="{hx+r*1.6:.1f}" y2="{hy:.1f}" '
+                f'stroke="#f85149" stroke-width="{r*0.12:.2f}"/>'
+                f'<line x1="{hx:.1f}" y1="{hy-r*1.6:.1f}" x2="{hx:.1f}" y2="{hy+r*1.6:.1f}" '
+                f'stroke="#f85149" stroke-width="{r*0.12:.2f}"/>'
+                f'<text x="{hx+r*1.4:.1f}" y="{hy-r*1.4:.1f}" fill="#f85149" '
+                f'stroke="none">{lab}</text>'
+            )
+        lines.append("</g>")
+
+    lines.append("</svg>")
     svg = "\n".join(lines)
 
     if out_path:
