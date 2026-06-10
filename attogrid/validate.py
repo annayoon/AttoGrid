@@ -106,15 +106,21 @@ def validate(texts: list[str], rules: dict) -> list[Finding]:
                         summary, src[:60], detail,
                     ))
 
-    # 규칙 2: 필수 키워드 존재 여부 (예: 이중전원, 接地 등)
-    for kw in rules.get("required_keywords", []):
-        if not any(kw in s for s in texts):
+    # 규칙 2: 필수 항목 존재 여부 (접지/이중전원 등)
+    req = rules.get("required_keywords", [])
+    pairs = req.items() if isinstance(req, dict) else [(k, k) for k in req]
+    for term, label in pairs:
+        if not any(term in s for s in texts):
             findings.append(Finding(
                 "warning", "required_keywords",
-                f"필수 키워드 누락: {kw!r}",
+                f"필수 항목 누락: {label}", "",
+                f"도면에서 {label} 표기를 찾지 못했습니다. 누락 여부를 확인하세요.",
             ))
 
-    # 규칙 3: 금지 패턴 (예: TODO, 미정, ???)
+    # 규칙 3: 변압기 용량 vs 계산 부하 정합성
+    findings.extend(_check_transformer_load(texts, rules))
+
+    # 규칙 4: 금지 패턴 (예: TODO, 미정, ???)
     for pat in rules.get("forbidden_patterns", []):
         rx = re.compile(pat)
         for s in texts:
@@ -126,3 +132,43 @@ def validate(texts: list[str], rules: dict) -> list[Finding]:
                 break
 
     return findings
+
+
+_RE_KVA = re.compile(r"(\d+\.?\d*)\s*KVA", re.I)
+_RE_PJS = re.compile(r"Pjs\s*=\s*(\d+\.?\d*)\s*kW", re.I)   # 계산 부하
+_RE_P = re.compile(r"\bP\s*=\s*(\d+\.?\d*)\s*kW", re.I)     # 설비 용량
+
+
+def _check_transformer_load(texts: list[str], rules: dict) -> list[Finding]:
+    """변압기 용량이 계산 부하를 감당하는지 점검(단일 변압기 기준 휴리스틱)."""
+    if not rules.get("transformer_load_check", True):
+        return []
+    pf = float(rules.get("power_factor", 0.9))
+    kvas, pjs, ps = [], [], []
+    for t in texts:
+        for m in _RE_KVA.finditer(t):
+            kvas.append(float(m.group(1)))
+        for m in _RE_PJS.finditer(t):
+            pjs.append((float(m.group(1)), t))
+        for m in _RE_P.finditer(t):
+            ps.append((float(m.group(1)), t))
+    if not kvas:
+        return []
+    loads = pjs or ps          # 계산 부하 우선, 없으면 설비 용량
+    if not loads:
+        return []
+    load_val, load_src = max(loads, key=lambda x: x[0])
+    max_tr = max(kvas)
+    required = load_val / pf
+    if required > max_tr:
+        over = (required / max_tr - 1) * 100
+        return [Finding(
+            "warning", "transformer_load",
+            f"변압기 용량 부족 가능성: 부하 {load_val:.0f}kW → 약 {required:.0f}KVA 필요 "
+            f"(최대 변압기 {max_tr:.0f}KVA)",
+            load_src[:60],
+            f"계산 부하 {load_val:.0f}kW를 역률 {pf}로 환산하면 약 {required:.0f}KVA가 "
+            f"필요한데, 도면 최대 변압기 용량은 {max_tr:.0f}KVA로 약 {over:.0f}% 부족합니다. "
+            f"단일 변압기 공급 기준이며, 이중화·분산 공급이면 변압기별 부하 배분을 확인하세요.",
+        )]
+    return []

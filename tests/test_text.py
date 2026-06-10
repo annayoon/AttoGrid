@@ -34,6 +34,24 @@ def test_validate_flags_nonstandard_voltage():
     assert any(f.rule == "allowed_voltages" for f in findings)
 
 
+def test_transformer_load_check():
+    from attogrid.validate import _check_transformer_load
+    # 부족: 1280kW/0.9 = 1422KVA 필요 > 1300KVA
+    f = _check_transformer_load(["Pjs=1280kW", "1300KVA"], {"power_factor": 0.9})
+    assert f and f[0].rule == "transformer_load"
+    # 충분: 1000kW/0.9 = 1111KVA < 1300KVA
+    assert not _check_transformer_load(["Pjs=1000kW", "1300KVA"], {"power_factor": 0.9})
+
+
+def test_required_keywords_dict():
+    rules = {"allowed_voltages": [], "required_keywords": {"接地": "접지"}, "forbidden_patterns": []}
+    # 접지 없음 → 위반
+    f = validate(["배전반"], rules)
+    assert any(x.rule == "required_keywords" and "접지" in x.message for x in f)
+    # 접지 있음 → 위반 없음
+    assert not [x for x in validate(["接地 母线"], rules) if x.rule == "required_keywords"]
+
+
 def test_explain_voltage_control_and_typo():
     from attogrid.validate import explain_voltage
     allowed = {"380V", "400V", "220V"}
