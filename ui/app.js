@@ -131,30 +131,50 @@ async function exportImage(fmt) {
 $("#btn-png").onclick = () => exportImage("png");
 $("#btn-svg").onclick = () => exportImage("svg");
 
-// 구획 미리보기: 경계 박스를 도면에 오버레이
+// 격자 옵션은 grid 방식일 때만 표시
+function syncGridOpts() { $("#grid-opts").style.display = $("#part-method").value === "grid" ? "" : "none"; }
+$("#part-method").onchange = syncGridOpts;
+syncGridOpts();
+
+// 구획 미리보기: 경계 박스 오버레이 + 구획별 집계 표
 $("#btn-partition").onclick = async () => {
   if (!needFile()) return;
   const method = $("#part-method").value;
+  const rows = parseInt($("#grid-rows").value) || 2, cols = parseInt($("#grid-cols").value) || 2;
   status("구획 분석 중…", "spin");
   try {
-    const part = await window.pywebview.api.partition(currentPath, method);
+    const part = await window.pywebview.api.partition(currentPath, method, rows, cols);
     const r = await window.pywebview.api.render(currentPath, 50000, null, part.sections);
     $("#preview-out").innerHTML = r.svg;
     setupPanZoom($("#preview-out"));
+    renderSectionList(part.sections);
     document.querySelector('.tab[data-tab="preview"]').click();
     $("#part-info").textContent = `${part.count}개 구획`;
-    status(`구획 ${part.count}개 (${method}) — 경계 표시`);
+    status(`구획 ${part.count}개 (${method}) — 경계·집계 표시`);
   } catch (e) { status("구획 오류: " + String(e), "sev-error"); }
 };
+
+function renderSectionList(secs) {
+  const rows = secs.map((s, i) =>
+    `<tr><td>${i + 1}</td><td>${esc(s.title || s.label)}</td>
+     <td>${(s.texts ?? 0).toLocaleString()}</td>
+     <td>${(s.translatable ?? 0).toLocaleString()}</td>
+     <td class="${s.violations ? "sev-warning" : ""}">${s.violations ?? 0}</td></tr>`).join("");
+  $("#section-list").innerHTML = `
+    <table class="section-table"><thead><tr>
+      <th>#</th><th>구획 제목</th><th>텍스트</th><th>번역 대상</th><th>위반</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+}
 
 // 구획별 이미지 저장
 $("#btn-sections").onclick = async () => {
   if (!needFile()) return;
   const method = $("#part-method").value;
+  const rows = parseInt($("#grid-rows").value) || 2, cols = parseInt($("#grid-cols").value) || 2;
   const markers = $("#img-markers").checked;
   status(`구획별 이미지 생성 중…`, "spin");
   try {
-    const r = await window.pywebview.api.export_sections(currentPath, method, "png", markers);
+    const r = await window.pywebview.api.export_sections(currentPath, method, "png", markers, rows, cols);
     status(`구획 ${r.count}개 저장됨: ${r.dir}`);
   } catch (e) { status("구획 저장 오류: " + String(e), "sev-error"); }
 };

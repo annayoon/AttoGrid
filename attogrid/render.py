@@ -187,7 +187,7 @@ def json_to_svg(
         for bx in boxes:
             x0, y0, x1, y1 = bx["bounds"]
             ry = maxy - y1
-            lab = str(bx.get("label", "")).replace("&", "&amp;").replace("<", "&lt;")
+            lab = str(bx.get("title") or bx.get("label", "")).replace("&", "&amp;").replace("<", "&lt;")
             lines.append(
                 f'<rect x="{x0:.1f}" y="{ry:.1f}" width="{x1-x0:.1f}" height="{y1-y0:.1f}"/>'
                 f'<text x="{x0+bw*4:.1f}" y="{ry+fs:.1f}" fill="#d29922" stroke="none" '

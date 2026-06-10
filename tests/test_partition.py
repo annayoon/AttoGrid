@@ -41,6 +41,17 @@ def test_partition_frame_detects_two_sheets():
     assert len(secs) == 2
 
 
+def test_section_title_picks_largest_text():
+    from attogrid.partition import section_title
+    data = {"OBJECTS": [
+        {"entity": "TEXT", "text_value": "작은글씨", "ins_pt": [50, 50, 0], "height": 5},
+        {"entity": "TEXT", "text_value": "전력계통도", "ins_pt": [50, 60, 0], "height": 40},
+        {"entity": "TEXT", "text_value": "ABC-123", "ins_pt": [50, 70, 0], "height": 99},  # 식별자 제외
+    ]}
+    d = attogrid.Drawing(source=Path("x"), data=data, objects=data["OBJECTS"])
+    assert section_title(d, (0, 0, 100, 100)) == "전력계통도"
+
+
 def test_render_bounds_clips():
     from attogrid import render
     # 시트 A 영역만 렌더 → 시트 B 도형 제외

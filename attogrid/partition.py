@@ -10,7 +10,32 @@
 """
 from __future__ import annotations
 
+import re
+
 from .render import _polylines, _dominant_cluster
+from .text import clean_mtext
+
+
+def section_title(drawing, bounds) -> str | None:
+    """구획 안에서 가장 큰(제목으로 보이는) 텍스트를 찾아 반환."""
+    bx0, by0, bx1, by1 = bounds
+    best, best_h = None, 0.0
+    for o in drawing.objects:
+        t = o.get("entity")
+        raw = o.get("text_value") if t == "TEXT" else (o.get("text") if t == "MTEXT" else None)
+        if not isinstance(raw, str):
+            continue
+        pt = o.get("ins_pt")
+        if not pt or len(pt) < 2:
+            continue
+        if not (bx0 <= pt[0] <= bx1 and by0 <= pt[1] <= by1):
+            continue
+        h = o.get("height") or o.get("text_height") or 0
+        clean = clean_mtext(raw)
+        # 제목 후보: 한·중 문자 포함, 너무 길지 않음, 가장 큰 글씨
+        if clean and 2 <= len(clean) <= 30 and re.search(r"[가-힣一-鿿]", clean) and h > best_h:
+            best, best_h = clean, h
+    return best
 
 
 def _bounds(pls):

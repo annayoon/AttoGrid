@@ -101,17 +101,30 @@ class Api:
             attogrid.render.json_to_png(d, str(p), highlights=highlights)
         return {"path": str(p)}
 
-    # --- 도면 구획 분할 ---
+    # --- 도면 구획 분할 (+ 구획별 제목·검증·번역대상 집계) ---
     def partition(self, path: str, method: str = "auto",
                   rows: int = 2, cols: int = 2) -> dict:
+        from attogrid.partition import section_title
         d = self._load(path)
         secs = attogrid.partition(d, method=method, rows=rows, cols=cols)
+        items = attogrid.extract_texts(d)
+        rules = attogrid.load_rules(RULES)
+        for s in secs:
+            b = s["bounds"]
+            inside = [it for it in items if it.x is not None
+                      and b[0] <= it.x <= b[2] and b[1] <= it.y <= b[3]]
+            findings = attogrid.validate([it.text for it in inside], rules)
+            s["title"] = section_title(d, b) or s["label"]
+            s["texts"] = len(inside)
+            s["translatable"] = sum(1 for it in inside if it.translatable)
+            s["violations"] = sum(1 for f in findings if f.severity != "info")
         return {"method": method, "count": len(secs), "sections": secs}
 
     # --- 구획별 이미지 저장 ---
     def export_sections(self, path: str, method: str = "auto", fmt: str = "png",
                         with_markers: bool = False, rows: int = 2, cols: int = 2,
                         out_dir: str | None = None) -> dict:
+        from attogrid.partition import section_title
         d = self._load(path)
         secs = attogrid.partition(d, method=method, rows=rows, cols=cols)
         if not secs:
@@ -127,7 +140,9 @@ class Api:
             b = tuple(s["bounds"])
             hl = ([h for h in markers if b[0] <= h["x"] <= b[2] and b[1] <= h["y"] <= b[3]]
                   if markers else None)
-            name = f"{i:02d}_{s['label'].replace(' ', '')}.{fmt}"
+            title = section_title(d, b) or s["label"]
+            safe = "".join(c for c in title if c.isalnum())[:20] or s["label"].replace(" ", "")
+            name = f"{i:02d}_{safe}.{fmt}"
             fp = outd / name
             try:
                 if fmt == "svg":
