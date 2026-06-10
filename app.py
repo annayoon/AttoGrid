@@ -23,7 +23,8 @@ class Api:
     """JS에서 호출되는 백엔드 API. 로드한 도면을 캐시해 재파싱을 피한다."""
 
     def __init__(self, default_path: str | None = None):
-        self._cache: dict[str, attogrid.Drawing] = {}
+        self._cache: dict[str, attogrid.Drawing] = {}    # path → Drawing
+        self._rcache: dict[tuple, object] = {}            # (path, op, ...) → 결과
         self._default_path = default_path
 
     # 명령행으로 받은 파일 경로(있으면 UI가 자동 로드)
@@ -35,6 +36,32 @@ class Api:
         if path not in self._cache:
             self._cache[path] = attogrid.read(path)
         return self._cache[path]
+
+    def _rcget(self, key: tuple):
+        return self._rcache.get(key)
+
+    def _rcset(self, key: tuple, value):
+        self._rcache[key] = value
+        return value
+
+    def _warm(self, path: str) -> None:
+        """백그라운드에서 Drawing 로딩 + 기본 SVG·extrude 미리 계산."""
+        import threading
+        def _do():
+            try:
+                d = self._load(path)
+                # SVG 캐시
+                svg_key = (path, "svg", 50000)
+                if svg_key not in self._rcache:
+                    svg = attogrid.render.json_to_svg(d, max_count=50000, width=1400)
+                    self._rcset(svg_key, {"svg": svg, "polylines": svg.count("<polyline")})
+                # extrude 캐시
+                ext_key = (path, "extrude")
+                if ext_key not in self._rcache:
+                    self._rcset(ext_key, attogrid.extrude(d))
+            except Exception:
+                pass
+        threading.Thread(target=_do, daemon=True).start()
 
     # --- 파일 선택 (창이 있을 때만 동작) ---
     def open_dialog(self) -> str | None:
@@ -52,6 +79,7 @@ class Api:
 
     # --- 요약 ---
     def inspect(self, path: str) -> dict:
+        self._warm(path)   # 백그라운드에서 SVG·extrude 미리 계산 시작
         d = self._load(path)
         kinds = collections.Counter(
             o.get("entity") or o.get("object") or "?" for o in d.objects
@@ -78,9 +106,19 @@ class Api:
     # --- 도면 미리보기 (JSON 지오메트리 직접 렌더) ---
     def render(self, path: str, max_count: int = 50000, highlights=None, boxes=None) -> dict:
         d = self._load(path)
+        # highlights·boxes 없는 기본 렌더는 캐시 (파일당 1회만 계산)
+        use_cache = not highlights and not boxes
+        key = (path, "svg", max_count)
+        if use_cache:
+            cached = self._rcget(key)
+            if cached is not None:
+                return cached
         svg = attogrid.render.json_to_svg(
             d, max_count=max_count, width=1400, highlights=highlights, boxes=boxes)
-        return {"svg": svg, "polylines": svg.count("<polyline")}
+        result = {"svg": svg, "polylines": svg.count("<polyline")}
+        if use_cache:
+            self._rcset(key, result)
+        return result
 
     # --- 번역을 도면 위에 얹어 렌더 ---
     def render_translated(self, path: str, backend: str = "glossary",
@@ -130,6 +168,10 @@ class Api:
     # --- 도면 구획 분할 (+ 구획별 제목·검증·번역대상 집계) ---
     def partition(self, path: str, method: str = "auto",
                   rows: int = 2, cols: int = 2) -> dict:
+        key = (path, "partition", method, rows, cols)
+        cached = self._rcget(key)
+        if cached is not None:
+            return cached
         from attogrid.partition import section_title
         d = self._load(path)
         secs = attogrid.partition(d, method=method, rows=rows, cols=cols)
@@ -147,7 +189,8 @@ class Api:
             s["texts"] = len(inside)
             s["translatable"] = sum(1 for it in inside if it.translatable)
             s["violations"] = sum(1 for f in findings if f.severity != "info")
-        return {"method": method, "count": len(secs), "sections": secs}
+        result = {"method": method, "count": len(secs), "sections": secs}
+        return self._rcset(key, result)
 
     # --- 구획별 이미지 저장 ---
     def export_sections(self, path: str, method: str = "auto", fmt: str = "png",
@@ -290,8 +333,12 @@ class Api:
 
     # --- 2D→3D 압출 ---
     def model3d(self, path: str) -> dict:
+        key = (path, "extrude")
+        cached = self._rcget(key)
+        if cached is not None:
+            return cached
         d = self._load(path)
-        return attogrid.extrude(d)
+        return self._rcset(key, attogrid.extrude(d))
 
     # --- 3D PNG 저장 ---
     def export_3d_image(self, path: str, out_path: str | None = None) -> dict:
@@ -299,8 +346,7 @@ class Api:
 
         out_path 미지정 시 저장 다이얼로그 → 그것도 없으면 도면 옆에 _3d.png 생성.
         """
-        d = self._load(path)
-        model = attogrid.extrude(d)
+        model = self.model3d(path)   # 캐시된 extrude 결과 재사용
         if not model["count"]:
             return {"error": "3D로 변환할 폴리라인이 없습니다."}
 
