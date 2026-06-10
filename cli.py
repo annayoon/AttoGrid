@@ -7,6 +7,7 @@ attogrid CLI — DWG 도면을 읽어 텍스트 추출/번역대상 분류/전�
     python cli.py texts    <file.dwg|.json> [--translatable]
     python cli.py validate <file.dwg|.json> [--rules attogrid/rules/datacenter.json]
     python cli.py translate <file.dwg|.json> [--to ko] [--limit N] [--mock] [--out map.json]
+    python cli.py rewrite  <file.dxf> <out.dxf> [--backend argos] [--to ko]
     python cli.py svg      <file.dwg> <out.svg>
 """
 from __future__ import annotations
@@ -95,6 +96,22 @@ def cmd_translate(args):
         print(f"매핑 저장: {args.out} ({len(mapping)}건)")
 
 
+def cmd_rewrite(args):
+    glossary = attogrid.load_glossary(args.glossary) if args.glossary else {}
+    if args.backend == "mock":
+        tr = attogrid.MockTranslator()
+    elif args.backend == "deepl":
+        tr = attogrid.DeepLTranslator()
+    else:
+        tr = attogrid.ArgosTranslator()
+    cache = attogrid.TranslationCache(Path(args.cache)).load() if args.cache else None
+    stat = attogrid.translate_dxf(
+        args.file, args.out, tr, glossary=glossary,
+        target=args.to, source="zh", cache=cache,
+    )
+    print(f"번역 재삽입 완료: {stat['replaced']}/{stat['entities']}건 → {stat['out']}")
+
+
 def cmd_svg(args):
     out = attogrid.render.to_svg(args.file, args.out)
     print(f"SVG 저장: {out}")
@@ -119,6 +136,12 @@ def main():
     s.add_argument("--cache", default=".attogrid_cache.json")
     s.add_argument("--out")
     s.set_defaults(fn=cmd_translate)
+    s = sub.add_parser("rewrite"); s.add_argument("file"); s.add_argument("out")
+    s.add_argument("--to", default="ko")
+    s.add_argument("--backend", choices=["deepl", "argos", "mock"], default="argos")
+    s.add_argument("--glossary", default="attogrid/glossary/zh_ko.json")
+    s.add_argument("--cache", default=".attogrid_cache.json")
+    s.set_defaults(fn=cmd_rewrite)
     s = sub.add_parser("svg"); s.add_argument("file"); s.add_argument("out"); s.set_defaults(fn=cmd_svg)
 
     args = p.parse_args()

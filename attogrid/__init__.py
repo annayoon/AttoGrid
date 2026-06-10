@@ -6,6 +6,7 @@ from .translate import (
     translate_texts, load_glossary, mask, unmask,
     DeepLTranslator, ArgosTranslator, MockTranslator, TranslationCache,
 )
+from .rewrite import translate_dxf
 from . import render
 
 __version__ = "0.1.0"
@@ -16,5 +17,6 @@ __all__ = [
     "validate", "load_rules", "parse_electrical", "Finding",
     "translate_texts", "load_glossary", "mask", "unmask",
     "DeepLTranslator", "ArgosTranslator", "MockTranslator", "TranslationCache",
+    "translate_dxf",
     "render",
 ]
