@@ -58,8 +58,9 @@ $("#btn-locate").onclick = async () => {
     status(`도면 렌더 + 마커 ${loc.count}곳…`, "spin");
     const r = await window.pywebview.api.render(currentPath, 50000, loc.items);
     $("#preview-out").innerHTML = r.svg;
+    setupPanZoom($("#preview-out"));
     document.querySelector('.tab[data-tab="preview"]').click();
-    status(`위반 전압 ${loc.count}곳을 도면에 빨간 마커로 표시`);
+    status(`위반 전압 ${loc.count}곳 표시 · 휠로 확대해 위치 확인`);
   } catch (e) {
     status("위치 표시 오류: " + String(e), "sev-error");
   }
@@ -106,8 +107,11 @@ function renderInspect(d) {
 
 function renderPreview(d) {
   $("#preview-out").innerHTML = d.svg;
-  status(`도면 렌더: 폴리라인 ${d.polylines.toLocaleString()}개`);
+  setupPanZoom($("#preview-out"));
+  status(`도면 렌더: 폴리라인 ${d.polylines.toLocaleString()}개 · 휠 확대/드래그 이동`);
 }
+
+$("#btn-fit").onclick = () => resetPanZoom();
 
 function renderTexts(d) {
   const rows = d.rows.map(r =>

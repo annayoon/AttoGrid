@@ -68,8 +68,8 @@ tr:hover td { background: var(--panel); }
 
 footer { padding: 8px 20px; border-top: 1px solid var(--line); background: var(--panel); color: var(--muted); font-size: 12px; }
 .hint { color: var(--muted); font-size: 12px; }
-.preview-out { border: 1px solid var(--line); border-radius: 8px; overflow: auto; background: #0f1419; }
-.preview-out svg { display: block; width: 100%; height: auto; }
+.preview-out { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #0f1419; height: 64vh; position: relative; }
+.preview-out svg { display: block; width: 100%; height: auto; will-change: transform; }
 .model3d-out { height: 560px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .model3d-out canvas { display: block; }
 .empty { color: var(--muted); padding: 40px; text-align: center; }

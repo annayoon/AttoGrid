@@ -38,7 +38,8 @@
     <section id="preview" class="panel">
       <div class="toolbar">
         <button data-run="preview">도면 렌더</button>
-        <span class="hint">JSON 지오메트리 직접 렌더 (모델 공간)</span>
+        <button id="btn-fit">원래대로</button>
+        <span class="hint">휠: 확대/축소 · 드래그: 이동</span>
       </div>
       <div id="preview-out" class="out preview-out"></div>
     </section>
@@ -85,6 +86,7 @@
   </main>
 
   <footer><span id="status">준비됨</span></footer>
+  <script src="panzoom.js"></script>
   <script src="vendor/three.min.js"></script>
   <script src="vendor/OrbitControls.js"></script>
   <script src="three-view.js"></script>
