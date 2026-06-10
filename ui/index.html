@@ -21,6 +21,7 @@
   <nav class="tabs">
     <button class="tab active" data-tab="inspect">개요</button>
     <button class="tab" data-tab="preview">도면</button>
+    <button class="tab" data-tab="model3d">3D</button>
     <button class="tab" data-tab="texts">텍스트</button>
     <button class="tab" data-tab="validate">전압 검증</button>
     <button class="tab" data-tab="translate">번역</button>
@@ -38,6 +39,14 @@
         <span class="hint">JSON 지오메트리 직접 렌더 (모델 공간)</span>
       </div>
       <div id="preview-out" class="out preview-out"></div>
+    </section>
+
+    <section id="model3d" class="panel">
+      <div class="toolbar">
+        <button data-run="model3d">3D 생성</button>
+        <span class="hint">닫힌 윤곽을 박스로 압출 · 드래그로 회전, 휠로 확대</span>
+      </div>
+      <div id="model3d-out" class="out model3d-out"></div>
     </section>
 
     <section id="texts" class="panel">
@@ -70,6 +79,9 @@
   </main>
 
   <footer><span id="status">준비됨</span></footer>
+  <script src="vendor/three.min.js"></script>
+  <script src="vendor/OrbitControls.js"></script>
+  <script src="three-view.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

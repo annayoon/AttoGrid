@@ -72,6 +72,11 @@ class Api:
         svg = attogrid.render.json_to_svg(d, max_count=max_count, width=1400)
         return {"svg": svg, "polylines": svg.count("<polyline")}
 
+    # --- 2D→3D 압출 ---
+    def model3d(self, path: str) -> dict:
+        d = self._load(path)
+        return attogrid.extrude(d)
+
     # --- 검증 ---
     def validate(self, path: str) -> dict:
         d = self._load(path)

@@ -44,6 +44,7 @@ async function run(kind) {
   try {
     if (kind === "inspect") return renderInspect(await window.pywebview.api.inspect(currentPath));
     if (kind === "preview") return renderPreview(await window.pywebview.api.render(currentPath));
+    if (kind === "model3d") return renderModel3d(await window.pywebview.api.model3d(currentPath));
     if (kind === "texts") return renderTexts(await window.pywebview.api.texts(currentPath, $("#texts-tonly").checked));
     if (kind === "validate") return renderValidate(await window.pywebview.api.validate(currentPath));
     if (kind === "translate") {

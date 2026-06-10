@@ -68,5 +68,7 @@ footer { padding: 8px 20px; border-top: 1px solid var(--line); background: var(-
 .hint { color: var(--muted); font-size: 12px; }
 .preview-out { border: 1px solid var(--line); border-radius: 8px; overflow: auto; background: #0f1419; }
 .preview-out svg { display: block; width: 100%; height: auto; }
+.model3d-out { height: 560px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.model3d-out canvas { display: block; }
 .empty { color: var(--muted); padding: 40px; text-align: center; }
 .spin { color: var(--accent); }
