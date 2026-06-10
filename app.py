@@ -169,7 +169,10 @@ class Api:
         return {
             "backend": backend,
             "count": len(srcs),
-            "rows": [{"source": s, "translation": t} for s, t in zip(srcs, outs)],
+            "rows": [
+                {"source": it.text, "translation": t, "x": it.x, "y": it.y}
+                for it, t in zip(items, outs)
+            ],
         }
 
     # --- 번역 결과 내보내기 (CSV/JSON) ---
@@ -185,14 +188,20 @@ class Api:
         if p.suffix.lower() not in (".csv", ".json"):
             p = p.with_suffix("." + fmt)
 
+        # 위치/레이어 정보가 있으면 함께 내보낸다
+        has_pos = any(r.get("x") is not None for r in rows)
         if p.suffix.lower() == ".json":
             p.write_text(_json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
         else:  # CSV (엑셀 한글 호환 위해 BOM)
             buf = io.StringIO()
             w = csv.writer(buf)
-            w.writerow(["원문", "번역"])
+            head = ["원문", "번역"] + (["X", "Y"] if has_pos else [])
+            w.writerow(head)
             for r in rows:
-                w.writerow([r.get("source", ""), r.get("translation", "")])
+                row = [r.get("source", ""), r.get("translation", "")]
+                if has_pos:
+                    row += [r.get("x", ""), r.get("y", "")]
+                w.writerow(row)
             p.write_text("﻿" + buf.getvalue(), encoding="utf-8")
         return {"path": str(p), "count": len(rows)}
 

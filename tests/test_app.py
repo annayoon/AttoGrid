@@ -50,6 +50,20 @@ def test_translate_mock_applies_glossary_and_protection():
     assert "모선" in joined           # 母线 사전 적용
 
 
+def test_translate_rows_include_position():
+    api = Api()
+    data = {"OBJECTS": [
+        {"entity": "TEXT", "entmode": 2, "text_value": "气体灭火系统", "ins_pt": [100.5, 200.25, 0]},
+    ]}
+    api._cache["p"] = attogrid.Drawing(source=Path("p"), data=data, objects=data["OBJECTS"])
+    r = api.translate("p", backend="mock", limit=0)["rows"][0]
+    assert r["x"] == 100.5 and r["y"] == 200.25
+
+    out = api.export_translations([r], "csv", "/tmp/_attogrid_pos.csv")
+    txt = Path(out["path"]).read_text(encoding="utf-8")
+    assert "X,Y" in txt and "100.5" in txt
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

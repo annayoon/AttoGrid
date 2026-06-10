@@ -47,6 +47,9 @@ class TextItem:
     lang: str
     translatable: bool
     handle: str | None = None
+    x: float | None = None     # 삽입점 X (모델 좌표)
+    y: float | None = None     # 삽입점 Y
+    layer: str | None = None
 
 
 def extract_texts(drawing) -> list[TextItem]:
@@ -70,8 +73,12 @@ def extract_texts(drawing) -> list[TextItem]:
         translatable = lang in ("ko", "zh") or not _IDENTIFIER.match(clean)
         if lang == "en" and _IDENTIFIER.match(clean):
             translatable = False
+        pt = o.get("ins_pt") or []
         items.append(TextItem(
             raw=raw, text=clean, lang=lang, translatable=translatable,
             handle=o.get("handle", {}).get("value") if isinstance(o.get("handle"), dict) else o.get("handle"),
+            x=round(pt[0], 2) if len(pt) > 0 else None,
+            y=round(pt[1], 2) if len(pt) > 1 else None,
+            layer=o.get("layer"),
         ))
     return items
