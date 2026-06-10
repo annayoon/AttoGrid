@@ -136,15 +136,16 @@ def json_to_svg(
                      f'font-family="sans-serif" font-size="{fs:.1f}">')
         for hgl in highlights:
             hx, hy = hgl["x"], maxy - hgl["y"]
+            col = hgl.get("color", "#f85149")  # 기본 빨강(위반)
             lab = str(hgl.get("label", "")).replace("&", "&amp;").replace("<", "&lt;")
             lines.append(
                 f'<circle cx="{hx:.1f}" cy="{hy:.1f}" r="{r:.1f}" '
-                f'fill="none" stroke="#f85149" stroke-width="{r*0.18:.2f}"/>'
+                f'fill="none" stroke="{col}" stroke-width="{r*0.18:.2f}"/>'
                 f'<line x1="{hx-r*1.6:.1f}" y1="{hy:.1f}" x2="{hx+r*1.6:.1f}" y2="{hy:.1f}" '
-                f'stroke="#f85149" stroke-width="{r*0.12:.2f}"/>'
+                f'stroke="{col}" stroke-width="{r*0.12:.2f}"/>'
                 f'<line x1="{hx:.1f}" y1="{hy-r*1.6:.1f}" x2="{hx:.1f}" y2="{hy+r*1.6:.1f}" '
-                f'stroke="#f85149" stroke-width="{r*0.12:.2f}"/>'
-                f'<text x="{hx+r*1.4:.1f}" y="{hy-r*1.4:.1f}" fill="#f85149" '
+                f'stroke="{col}" stroke-width="{r*0.12:.2f}"/>'
+                f'<text x="{hx+r*1.4:.1f}" y="{hy-r*1.4:.1f}" fill="{col}" '
                 f'stroke="none">{lab}</text>'
             )
         lines.append("</g>")

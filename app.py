@@ -82,12 +82,14 @@ class Api:
             d, max_count=max_count, width=1400, highlights=highlights)
         return {"svg": svg, "polylines": svg.count("<polyline")}
 
-    # --- 위반 전압의 도면상 위치 찾기 ---
-    def locate_voltages(self, path: str) -> dict:
+    # --- 전압의 도면상 위치 찾기 ---
+    # include_ok=False: 위반(비표준)만 빨강. True: 정상 전압도 초록으로 표시.
+    def locate_voltages(self, path: str, include_ok: bool = False) -> dict:
         d = self._load(path)
         rules = attogrid.load_rules(RULES)
         allowed = set(rules.get("allowed_voltages", []))
         items, seen = [], set()
+        n_ok = n_bad = 0
         for o in d.objects:
             if o.get("entmode") != 2:
                 continue
@@ -105,15 +107,23 @@ class Api:
                     continue
                 fv = float(val)
                 norm = f"{int(fv)}V" if fv.is_integer() else f"{val}V"
-                if norm in allowed:
+                ok = norm in allowed
+                if ok and not include_ok:
                     continue
                 key = (norm, round(pt[0], 1), round(pt[1], 1))
                 if key in seen:
                     continue
                 seen.add(key)
-                items.append({"voltage": norm, "text": clean[:50],
-                              "x": pt[0], "y": pt[1], "label": norm})
-        return {"count": len(items), "items": items}
+                if ok:
+                    n_ok += 1
+                else:
+                    n_bad += 1
+                items.append({
+                    "voltage": norm, "text": clean[:50], "x": pt[0], "y": pt[1],
+                    "label": norm, "ok": ok,
+                    "color": "#3fb950" if ok else "#f85149",  # 초록=정상, 빨강=위반
+                })
+        return {"count": len(items), "ok": n_ok, "violations": n_bad, "items": items}
 
     # --- 2D→3D 압출 ---
     def model3d(self, path: str) -> dict:

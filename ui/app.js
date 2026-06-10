@@ -51,16 +51,20 @@ document.querySelectorAll("[data-run]").forEach(b => {
 // 위반 전압을 도면에 표시
 $("#btn-locate").onclick = async () => {
   if (!needFile()) return;
-  status("위반 전압 위치 탐색 중…", "spin");
+  status("전압 위치 탐색 중…", "spin");
   try {
-    const loc = await window.pywebview.api.locate_voltages(currentPath);
-    if (!loc.count) { status("표시할 위반 전압이 없습니다"); return; }
+    const includeOk = $("#loc-all").checked;
+    const loc = await window.pywebview.api.locate_voltages(currentPath, includeOk);
+    if (!loc.count) { status("표시할 전압이 없습니다"); return; }
     status(`도면 렌더 + 마커 ${loc.count}곳…`, "spin");
     const r = await window.pywebview.api.render(currentPath, 50000, loc.items);
     $("#preview-out").innerHTML = r.svg;
     setupPanZoom($("#preview-out"));
     document.querySelector('.tab[data-tab="preview"]').click();
-    status(`위반 전압 ${loc.count}곳 표시 · 휠로 확대해 위치 확인`);
+    const msg = includeOk
+      ? `전압 ${loc.count}곳 (위반 ${loc.violations}=빨강 · 정상 ${loc.ok}=초록) · 휠로 확대`
+      : `위반 전압 ${loc.violations}곳 표시(빨강) · 휠로 확대해 확인`;
+    status(msg);
   } catch (e) {
     status("위치 표시 오류: " + String(e), "sev-error");
   }
