@@ -65,5 +65,8 @@ tr:hover td { background: var(--panel); }
 .bar { height: 8px; background: var(--accent); border-radius: 4px; }
 
 footer { padding: 8px 20px; border-top: 1px solid var(--line); background: var(--panel); color: var(--muted); font-size: 12px; }
+.hint { color: var(--muted); font-size: 12px; }
+.preview-out { border: 1px solid var(--line); border-radius: 8px; overflow: auto; background: #0f1419; }
+.preview-out svg { display: block; width: 100%; height: auto; }
 .empty { color: var(--muted); padding: 40px; text-align: center; }
 .spin { color: var(--accent); }

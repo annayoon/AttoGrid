@@ -20,6 +20,7 @@
 
   <nav class="tabs">
     <button class="tab active" data-tab="inspect">개요</button>
+    <button class="tab" data-tab="preview">도면</button>
     <button class="tab" data-tab="texts">텍스트</button>
     <button class="tab" data-tab="validate">전압 검증</button>
     <button class="tab" data-tab="translate">번역</button>
@@ -29,6 +30,14 @@
     <section id="inspect" class="panel active">
       <div class="toolbar"><button data-run="inspect">분석</button></div>
       <div id="inspect-out" class="out"></div>
+    </section>
+
+    <section id="preview" class="panel">
+      <div class="toolbar">
+        <button data-run="preview">도면 렌더</button>
+        <span class="hint">JSON 지오메트리 직접 렌더 (모델 공간)</span>
+      </div>
+      <div id="preview-out" class="out preview-out"></div>
     </section>
 
     <section id="texts" class="panel">

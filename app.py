@@ -66,6 +66,12 @@ class Api:
         ][:limit]
         return {"total": len(items), "dist": dict(dist), "rows": rows}
 
+    # --- 도면 미리보기 (JSON 지오메트리 직접 렌더) ---
+    def render(self, path: str, max_count: int = 50000) -> dict:
+        d = self._load(path)
+        svg = attogrid.render.json_to_svg(d, max_count=max_count, width=1400)
+        return {"svg": svg, "polylines": svg.count("<polyline")}
+
     # --- 검증 ---
     def validate(self, path: str) -> dict:
         d = self._load(path)
