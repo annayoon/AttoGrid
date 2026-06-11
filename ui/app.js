@@ -281,6 +281,31 @@ $("#btn-export-json").onclick = () => exportTranslations("json");
 
 // 명령행으로 전달된 파일이 있으면 자동 로드
 window.addEventListener("pywebviewready", async () => {
+  // 웹 모드 감지: pywebview 네이티브가 없으면 업로드 버튼 표시
+  if (window._attogridWebMode) {
+    const wrap = $("#web-upload-wrap");
+    if (wrap) wrap.style.display = "";
+    // 파일 업로드 핸들러
+    const input = $("#web-upload");
+    const btn   = $("#btn-web-upload");
+    if (btn && input) {
+      btn.onclick = () => input.click();
+      input.onchange = async () => {
+        const file = input.files[0];
+        if (!file) return;
+        status("업로드 중: " + file.name, "spin");
+        const fd = new FormData();
+        fd.append("file", file);
+        try {
+          const r = await fetch("/api/upload", { method: "POST", body: fd }).then(x => x.json());
+          if (r.error) { status("업로드 오류: " + r.error, "sev-error"); return; }
+          await loadPath(r.path);
+        } catch (e) { status("업로드 오류: " + String(e), "sev-error"); }
+        input.value = "";
+      };
+    }
+  }
+
   status("준비됨 — 도면을 여세요");
   try {
     const p = await window.pywebview.api.default_path();

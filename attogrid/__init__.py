@@ -6,6 +6,7 @@ from .translate import (
     translate_texts, load_glossary, glossary_translate, mask, unmask,
     DeepLTranslator, ArgosTranslator, MockTranslator, TranslationCache,
 )
+from .translate_ollama import OllamaTranslator
 from .rewrite import translate_dxf
 from .model3d import extrude, render_3d_png
 from .partition import partition
@@ -20,5 +21,6 @@ __all__ = [
     "translate_texts", "load_glossary", "glossary_translate", "mask", "unmask",
     "DeepLTranslator", "ArgosTranslator", "MockTranslator", "TranslationCache",
     "translate_dxf", "extrude", "render_3d_png", "partition",
+    "OllamaTranslator",
     "render",
 ]

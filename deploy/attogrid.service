@@ -1,0 +1,50 @@
+# AttoGrid systemd 서비스
+#
+# 설치 위치:
+#   /etc/systemd/system/attogrid.service
+#
+# 등록 및 시작:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable attogrid
+#   sudo systemctl start attogrid
+#
+# 상태 확인:
+#   sudo systemctl status attogrid
+#   sudo journalctl -u attogrid -f   (실시간 로그)
+
+[Unit]
+Description=AttoGrid 웹 서버 (ATTO Research)
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=__SERVICE_USER__
+Group=__SERVICE_USER__
+WorkingDirectory=__INSTALL_DIR__
+
+# 가상환경 Python으로 실행
+ExecStart=__INSTALL_DIR__/.venv/bin/python web_app.py \
+          --host 127.0.0.1 \
+          --port 5000
+
+# 실패 시 자동 재시작
+Restart=on-failure
+RestartSec=5s
+
+# 환경 변수 (Ollama 호스트 변경 시)
+Environment=OLLAMA_HOST=http://localhost:11434
+
+# 로그
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=attogrid
+
+# 보안: 필요 최소 권한
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=__INSTALL_DIR__/uploads __INSTALL_DIR__
+
+[Install]
+WantedBy=multi-user.target
