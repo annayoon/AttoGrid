@@ -74,7 +74,7 @@ footer { padding: 8px 20px; border-top: 1px solid var(--line); background: var(-
 .section-table th, .section-table td { padding: 5px 10px; }
 #grid-opts input { background: var(--panel2); color: var(--fg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; margin: 0 4px; }
 .preview-out { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #0f1419; height: 64vh; position: relative; }
-.preview-out svg { display: block; width: 100%; height: auto; will-change: transform; }
+.preview-out svg { display: block; width: 100%; height: auto; /* will-change 제거: 비트맵 레이어 생성 방지 → viewBox 방식으로 벡터 재렌더 */ }
 .model3d-out { height: 68vh; min-height: 500px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .model3d-out canvas { display: block; }
 .empty { color: var(--muted); padding: 40px; text-align: center; }

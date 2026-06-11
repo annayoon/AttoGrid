@@ -60,7 +60,12 @@ function _initThree(host) {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.15;
-  renderer.outputEncoding = THREE.sRGBEncoding;
+  // three.js r152+ 에서는 outputColorSpace, 구버전(r128)은 outputEncoding
+  if (THREE.SRGBColorSpace !== undefined && renderer.outputColorSpace !== undefined) {
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+  } else if (THREE.sRGBEncoding !== undefined) {
+    renderer.outputEncoding = THREE.sRGBEncoding;
+  }
 
   host.innerHTML = "";
   host.appendChild(renderer.domElement);
@@ -162,10 +167,21 @@ function _fitCamera(camera, controls, group) {
 function renderModel3d(data) {
   const host = document.getElementById("model3d-out");
   if (!window.THREE) {
-    host.innerHTML = '<div class="empty sev-error">three.js 로드 실패</div>';
+    host.innerHTML = '<div class="empty sev-error">three.js 로드 실패<br>페이지를 새로고침 해주세요 (Cmd+Shift+R / F5)</div>';
     return;
   }
-  if (!_3d) _3d = _initThree(host);
+  if (!THREE.OrbitControls) {
+    host.innerHTML = '<div class="empty sev-error">OrbitControls 로드 실패<br>페이지를 새로고침 해주세요 (Cmd+Shift+R / F5)</div>';
+    return;
+  }
+  if (!_3d) {
+    try {
+      _3d = _initThree(host);
+    } catch (e) {
+      host.innerHTML = `<div class="empty sev-error">3D 뷰어 초기화 실패: ${String(e)}<br>WebGL이 지원되지 않거나 비활성화 되어 있습니다.</div>`;
+      return;
+    }
+  }
 
   // 이전 오브젝트 정리
   const g = _3d.group;

@@ -105,7 +105,7 @@ def _clip(polylines, bounds):
 
 def json_to_svg(
     drawing, out_path: str | Path | None = None,
-    max_count: int = 60000, width: int = 1400, stroke: float = 0.0,
+    max_count: int = 60000, width: int = 3000, stroke: float = 0.0,
     highlights: list | None = None, bounds: tuple | None = None,
     boxes: list | None = None, texts: list | None = None,
 ) -> str:
@@ -129,7 +129,7 @@ def json_to_svg(
     w = (maxx - minx) or 1.0
     h = (maxy - miny) or 1.0
     height = int(width * h / w)
-    sw = stroke or (w / width)  # 화면 1px 두께
+    sw = stroke or (w / width)  # PNG 내보내기용 fallback 두께
 
     def fmt(pl):
         # Y 뒤집기(CAD: 위로 +, SVG: 아래로 +)
@@ -139,8 +139,12 @@ def json_to_svg(
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
         f'viewBox="0 0 {w:.2f} {h:.2f}" style="background:#0f1419">',
+        # ▶ non-scaling-stroke: viewBox 줌(panzoom)에 관계없이 항상 1px 선 굵기 유지.
+        #   CSS transform 방식과 달리 viewBox 변경 시 SVG 엔진이 벡터를 재렌더하므로
+        #   어떤 줌 레벨에서도 Retina 해상도로 선명하게 표시됨.
+        '<style>polyline{vector-effect:non-scaling-stroke;stroke-width:1}</style>',
         f'<g transform="translate({-minx:.2f},0)" stroke="#8fd3ff" '
-        f'stroke-width="{sw:.4f}" fill="none" stroke-linecap="round">',
+        f'fill="none" stroke-linecap="round">',
     ]
     drawn = 0
     for pl in polylines:
@@ -205,10 +209,13 @@ def json_to_svg(
         lines.append(f'<g transform="translate({-minx:.2f},0)" '
                      f'fill="#ffd479" stroke="none" font-family="sans-serif">')
         default_h = w * 0.004
+        min_h    = w * 0.003   # 최소 9px (3000px 기준) — DWG 좌표 200단위 같은
+                               # 극소값은 SVG에서 0.7px이 되어 보이지 않으므로 클램핑
         for tx in texts:
             x = tx["x"]
             y = maxy - tx["y"]
             fh = tx.get("height") or default_h
+            fh = max(fh, min_h)  # 최솟값 보장
             s = _esc2(tx.get("text", ""))
             if s:
                 lines.append(

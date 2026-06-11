@@ -83,7 +83,17 @@ async function run(kind) {
   try {
     if (kind === "inspect") return renderInspect(await window.pywebview.api.inspect(currentPath));
     if (kind === "preview") return renderPreview(await window.pywebview.api.render(currentPath));
-    if (kind === "model3d") return renderModel3d(await window.pywebview.api.model3d(currentPath));
+    if (kind === "model3d") {
+      // ★ Safari 호환: renderModel3d 조회를 await(fetch) 이후로 분리
+      //   f(await X) 형식은 f를 fetch 이전에 조회하므로 three-view.js 미로드 시 ReferenceError
+      const d = await window.pywebview.api.model3d(currentPath);
+      if (typeof renderModel3d !== "function") {
+        out.innerHTML = '<div class="empty sev-error">오류: 3D 뷰어 스크립트(three-view.js) 로드 실패<br>페이지를 새로고침 해주세요 (Cmd+Shift+R)</div>';
+        status("3D 오류: 새로고침 필요", "sev-error");
+        return;
+      }
+      return renderModel3d(d);
+    }
     if (kind === "texts") return renderTexts(await window.pywebview.api.texts(currentPath, $("#texts-tonly").checked));
     if (kind === "validate") return renderValidate(await window.pywebview.api.validate(currentPath));
     if (kind === "translate") {
@@ -141,8 +151,18 @@ $("#btn-overlay").onclick = async () => {
     $("#preview-out").innerHTML = r.svg;
     setupPanZoom($("#preview-out"));
     document.querySelector('.tab[data-tab="preview"]').click();
+    $("#btn-overlay-reset").style.display = "";   // 원본으로 버튼 표시
     status(`번역 ${r.texts.toLocaleString()}개를 도면에 얹음 (${r.backend}) · 휠로 확대`);
   } catch (e) { status("번역 얹기 오류: " + String(e), "sev-error"); }
+};
+
+// 번역 오버레이 → 원본 도면으로 복귀
+$("#btn-overlay-reset").onclick = async () => {
+  if (!currentPath) return;
+  $("#btn-overlay-reset").style.display = "none";
+  try {
+    renderPreview(await window.pywebview.api.render(currentPath));
+  } catch (e) { status("도면 복귀 오류: " + String(e), "sev-error"); }
 };
 
 // 3D PNG 저장 — 현재 보이는 뷰 그대로 캡처

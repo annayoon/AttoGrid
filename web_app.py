@@ -69,7 +69,7 @@ def _warm(path: str) -> None:
             d = _load(path)
             svg_key = (path, "svg", 50000)
             if _rcget(svg_key) is None:
-                svg = attogrid.render.json_to_svg(d, max_count=50000, width=1400)
+                svg = attogrid.render.json_to_svg(d, max_count=50000, width=3000)
                 _rcset(svg_key, {"svg": svg, "polylines": svg.count("<polyline")})
             ext_key = (path, "extrude")
             if _rcget(ext_key) is None:
@@ -96,7 +96,11 @@ def _err(msg: str, code: int = 500):
 # ── 정적 파일 ────────────────────────────────────────────────────
 @app.route("/")
 def index():
-    return send_from_directory(ROOT / "ui", "index.html")
+    resp = send_from_directory(ROOT / "ui", "index.html")
+    # Safari 구 캐시 방지: 매 접속 시 최신 HTML 제공
+    resp.headers["Cache-Control"] = "no-cache, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 
 @app.route("/<path:filename>")
@@ -167,7 +171,7 @@ def api_render():
             if cached is not None:
                 return jsonify(cached)
         svg = attogrid.render.json_to_svg(
-            d, max_count=max_count, width=1400, highlights=highlights, boxes=boxes)
+            d, max_count=max_count, width=3000, highlights=highlights, boxes=boxes)
         result = {"svg": svg, "polylines": svg.count("<polyline")}
         if use_cache:
             _rcset(key, result)
@@ -262,7 +266,10 @@ def api_locate_voltages():
                 ok   = norm in allowed
                 if ok and not include_ok:
                     continue
-                key  = (norm, round(pt[0], 1), round(pt[1], 1))
+                # 10,000단위 격자로 dedup — 같은 장비 그룹의 텍스트 여러 개
+                # (예: "模块24V线", "B：模块24V电源线" 등 4개가 1,700단위 안에 밀집)가
+                # 하나의 마커로 합쳐져 겹침 현상을 방지한다
+                key  = (norm, int(pt[0]) // 10000, int(pt[1]) // 10000)
                 if key in seen:
                     continue
                 seen.add(key)
@@ -332,7 +339,7 @@ def api_render_translated():
         texts = [{"x": it.x, "y": it.y, "height": it.height, "text": t}
                  for it, t in zip(items, outs) if t]
         svg = attogrid.render.json_to_svg(
-            d, max_count=max_count, width=1400, texts=texts)
+            d, max_count=max_count, width=3000, texts=texts)
         return jsonify({"svg": svg, "texts": len(texts), "backend": backend})
     except Exception as e:
         return _err(str(e))
@@ -387,6 +394,7 @@ def api_export_image():
             rules   = attogrid.load_rules(RULES)
             allowed = set(rules.get("allowed_voltages", []))
             highlights = []
+            _mkseen: set = set()
             for o in d.objects:
                 if o.get("entmode") != 2:
                     continue
@@ -405,6 +413,10 @@ def api_export_image():
                     fv   = float(val)
                     norm = f"{int(fv)}V" if fv.is_integer() else f"{val}V"
                     if norm not in allowed:
+                        mkey = (norm, int(pt[0]) // 10000, int(pt[1]) // 10000)
+                        if mkey in _mkseen:
+                            continue
+                        _mkseen.add(mkey)
                         highlights.append({
                             "x": pt[0], "y": pt[1], "label": norm,
                             "color": "#f85149",

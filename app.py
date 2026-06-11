@@ -53,7 +53,7 @@ class Api:
                 # SVG 캐시
                 svg_key = (path, "svg", 50000)
                 if svg_key not in self._rcache:
-                    svg = attogrid.render.json_to_svg(d, max_count=50000, width=1400)
+                    svg = attogrid.render.json_to_svg(d, max_count=50000, width=3000)
                     self._rcset(svg_key, {"svg": svg, "polylines": svg.count("<polyline")})
                 # extrude 캐시
                 ext_key = (path, "extrude")
@@ -114,7 +114,7 @@ class Api:
             if cached is not None:
                 return cached
         svg = attogrid.render.json_to_svg(
-            d, max_count=max_count, width=1400, highlights=highlights, boxes=boxes)
+            d, max_count=max_count, width=3000, highlights=highlights, boxes=boxes)
         result = {"svg": svg, "polylines": svg.count("<polyline")}
         if use_cache:
             self._rcset(key, result)
@@ -143,7 +143,7 @@ class Api:
                                             source="zh", cache=cache)
         texts = [{"x": it.x, "y": it.y, "height": it.height, "text": t}
                  for it, t in zip(items, outs) if t]
-        svg = attogrid.render.json_to_svg(d, max_count=max_count, width=1400, texts=texts)
+        svg = attogrid.render.json_to_svg(d, max_count=max_count, width=3000, texts=texts)
         return {"svg": svg, "texts": len(texts), "backend": backend}
 
     # --- 도면 이미지 내보내기 (PNG/SVG) ---
