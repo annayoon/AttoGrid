@@ -22,16 +22,19 @@ real.svg
 
 # --- 생성 결과물 ---
 out_*.png
+3d_view.png
 /build/
 /dist/
 /output/
 .attogrid_cache.json
 /sections/
 /translations/
+/uploads/
 drawing.png
 drawing.svg
 translations.csv
 translations.json
+attogrid_web.log
 
 # --- OS / 에디터 ---
 .DS_Store

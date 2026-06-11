@@ -66,6 +66,9 @@
 
   /* ── pywebview.api 폴리필 ──────────────────────────────── */
 
+  // 웹 모드 플래그 — app.js에서 업로드 버튼 표시 여부 판단에 사용
+  window._attogridWebMode = true;
+
   window.pywebview = {
     api: {
       // 기본 경로 (URL 쿼리스트링 ?file=... 지원)

@@ -282,7 +282,7 @@ $("#btn-export-json").onclick = () => exportTranslations("json");
 // 명령행으로 전달된 파일이 있으면 자동 로드
 window.addEventListener("pywebviewready", async () => {
   // 웹 모드 감지: pywebview 네이티브가 없으면 업로드 버튼 표시
-  if (!navigator.userAgent.includes("pywebview")) {
+  if (window._attogridWebMode) {
     const wrap = $("#web-upload-wrap");
     if (wrap) wrap.style.display = "";
     // 파일 업로드 핸들러
