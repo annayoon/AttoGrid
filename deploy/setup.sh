@@ -36,6 +36,28 @@ PORT=5000
 info "설치 경로: $INSTALL_DIR"
 info "서비스 사용자: $SERVICE_USER"
 
+# ── libredwg (dwgread) ───────────────────────────────────────────
+echo -e "\n${BOLD}[0/4] libredwg 설치 (DWG 파일 읽기)${NC}"
+if command -v dwgread &>/dev/null; then
+    ok "dwgread 이미 설치됨: $(dwgread --version 2>&1 | head -1)"
+else
+    info "libredwg 소스 빌드 중... (EPEL 미포함 — 약 1분)"
+    if [ "$EUID" -eq 0 ]; then
+        dnf install -y autoconf automake libtool gcc make pkg-config 2>&1 | tail -2
+    fi
+    LIBREDWG_VER="0.12.5"
+    LIBREDWG_DIR="/tmp/libredwg-${LIBREDWG_VER}"
+    curl -sL "https://ftp.gnu.org/gnu/libredwg/libredwg-${LIBREDWG_VER}.tar.xz" \
+         -o /tmp/libredwg.tar.xz
+    tar xf /tmp/libredwg.tar.xz -C /tmp
+    cd "$LIBREDWG_DIR"
+    ./configure --disable-bindings --disable-python 2>&1 | tail -2
+    make -j"$(nproc)" 2>&1 | tail -2
+    [ "$EUID" -eq 0 ] && make install && ldconfig
+    cd "$INSTALL_DIR"
+    ok "dwgread $(dwgread --version 2>&1 | head -1) 설치 완료"
+fi
+
 # ── Python 가상환경 ───────────────────────────────────────────────
 echo -e "\n${BOLD}[1/4] Python 환경 설정${NC}"
 if [ ! -d "$INSTALL_DIR/.venv" ]; then

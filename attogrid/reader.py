@@ -60,8 +60,13 @@ def read(path: str | Path) -> Drawing:
 
 def _dwg_to_json(path: Path) -> dict:
     if not _which("dwgread"):
+        import platform
+        if platform.system() == "Darwin":
+            hint = "brew install libredwg"
+        else:
+            hint = "sudo dnf install libredwg  # 또는 소스 빌드: https://github.com/LibreDWG/libredwg"
         raise RuntimeError(
-            "dwgread(libredwg)가 설치되어 있지 않습니다. `brew install libredwg`"
+            f"dwgread(libredwg)가 설치되어 있지 않습니다.\n설치: {hint}"
         )
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
         out = Path(tmp.name)
