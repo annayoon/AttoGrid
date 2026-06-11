@@ -551,13 +551,13 @@ def api_export_section_translations():
 # ── Ollama 상태 확인 ──────────────────────────────────────────────
 @app.route("/api/ollama_status", methods=["GET"])
 def api_ollama_status():
-    """Ollama 서버 연결 및 모델 목록 확인."""
+    """LLM 서버 연결 및 모델 목록 확인 (Ollama / vLLM / OpenAI 호환)."""
     import urllib.request as _ur
-    host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+    host = os.environ.get("OLLAMA_HOST", "http://10.0.98.99:8000").rstrip("/")
     try:
-        with _ur.urlopen(f"{host}/api/tags", timeout=3) as r:
+        with _ur.urlopen(f"{host}/v1/models", timeout=3) as r:
             data = json.loads(r.read())
-        models = [m["name"] for m in data.get("models", [])]
+        models = [m["id"] for m in data.get("data", [])]
         return jsonify({"ok": True, "host": host, "models": models})
     except Exception as e:
         return jsonify({"ok": False, "host": host, "error": str(e)})
