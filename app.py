@@ -77,12 +77,14 @@ class Api:
     def open_dialog(self) -> str | None:
         import webview
         win = webview.windows[0]
-        # macOS NSOpenPanel은 file_types 파싱이 까다로워 파일이 비활성화될 수 있으므로
-        # 필터 없이 모든 파일을 선택 가능하게 연다.
+        # FileDialog.OPEN = 10 (pywebview 4.x+), OPEN_DIALOG은 deprecated
         try:
-            result = win.create_file_dialog(webview.OPEN_DIALOG, allow_multiple=False)
+            result = win.create_file_dialog(webview.FileDialog.OPEN, allow_multiple=False)
         except Exception:
-            result = win.create_file_dialog(10)  # OPEN_DIALOG 폴백
+            try:
+                result = win.create_file_dialog(10)
+            except Exception:
+                return None
         if not result:
             return None
         return result[0] if isinstance(result, (list, tuple)) else result

@@ -66,10 +66,12 @@
 
   /* ── pywebview.api 폴리필 ──────────────────────────────── */
 
-  // 웹 모드 플래그 — app.js에서 업로드 버튼 표시 여부 판단에 사용
+  // 웹 모드 플래그 — pywebview 네이티브가 나중에 이 객체를 덮어쓰면
+  // _isPolyfill 키도 사라지므로 app.js에서 정확히 모드를 판단할 수 있다
   window._attogridWebMode = true;
 
   window.pywebview = {
+    _isPolyfill: true,
     api: {
       // 기본 경로 (URL 쿼리스트링 ?file=... 지원)
       default_path: () => {
