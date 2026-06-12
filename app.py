@@ -32,6 +32,16 @@ class Api:
         return self._default_path
 
     # --- 내부 ---
+    @staticmethod
+    def _translator(backend: str):
+        if backend == "mock":
+            return attogrid.MockTranslator()
+        if backend == "deepl":
+            return attogrid.DeepLTranslator()
+        if backend == "ollama":
+            return attogrid.OllamaTranslator()
+        return attogrid.ArgosTranslator()
+
     def _load(self, path: str) -> attogrid.Drawing:
         if path not in self._cache:
             self._cache[path] = attogrid.read(path)
@@ -134,9 +144,7 @@ class Api:
             # 사전만으로 즉시(한자 용어만 한국어, 나머지는 원문)
             outs = [attogrid.glossary_translate(it.text, glossary) for it in items]
         else:
-            tr = (attogrid.MockTranslator() if backend == "mock"
-                  else attogrid.DeepLTranslator() if backend == "deepl"
-                  else attogrid.ArgosTranslator())
+            tr = self._translator(backend)
             cache = attogrid.TranslationCache(Path(ROOT / ".attogrid_cache.json")).load()
             outs = attogrid.translate_texts([it.text for it in items], tr,
                                             glossary=glossary, target="ko",
@@ -240,9 +248,7 @@ class Api:
             return {"count": 0, "dir": None, "files": []}
         items = [it for it in attogrid.extract_texts(d) if it.translatable and it.x is not None]
         glossary = attogrid.load_glossary(GLOSSARY)
-        tr = (attogrid.MockTranslator() if backend == "mock"
-              else attogrid.DeepLTranslator() if backend == "deepl"
-              else attogrid.ArgosTranslator())
+        tr = self._translator(backend)
         cache = attogrid.TranslationCache(Path(ROOT / ".attogrid_cache.json")).load()
 
         if not out_dir:
@@ -419,12 +425,7 @@ class Api:
             items = items[:limit]
         glossary = attogrid.load_glossary(GLOSSARY)
 
-        if backend == "mock":
-            tr = attogrid.MockTranslator()
-        elif backend == "deepl":
-            tr = attogrid.DeepLTranslator()
-        else:
-            tr = attogrid.ArgosTranslator()
+        tr = self._translator(backend)
 
         srcs = [i.text for i in items]
         outs = attogrid.translate_texts(srcs, tr, glossary=glossary, target="ko", source="zh")

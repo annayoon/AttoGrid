@@ -116,8 +116,15 @@ class ArgosTranslator:
         import argostranslate.translate  # 지연 임포트
         self._tr = argostranslate.translate
 
+    # CJK 통합 한자 / CJK 확장 A·B 블록
+    _CJK = re.compile(r"[一-鿿㐀-䶿\U00020000-\U0002a6df]")
+
     def _translate_chunk(self, text: str, target: str, source: str) -> str:
         if not text.strip():
+            return text
+        # CJK 문자가 없으면 번역 불필요 — 숫자·공백만 남은 경우 argos 모델이
+        # "1" → "한국어" 같은 엉뚱한 값을 반환하는 버그를 회피한다
+        if not self._CJK.search(text):
             return text
         text = text.translate(self._PUNCT)
         try:
