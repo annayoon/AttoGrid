@@ -40,6 +40,8 @@ class Api:
             return attogrid.DeepLTranslator()
         if backend == "ollama":
             return attogrid.OllamaTranslator()
+        if backend == "claude":
+            return attogrid.ClaudeTranslator()
         return attogrid.ArgosTranslator()
 
     def _load(self, path: str) -> attogrid.Drawing:

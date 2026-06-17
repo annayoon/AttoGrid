@@ -76,6 +76,12 @@ def cmd_translate(args):
     elif backend == "argos":
         translator = attogrid.ArgosTranslator()  # 오프라인·무료
         print("[argos] 오프라인 오픈소스 번역 (영어 경유 pivot).")
+    elif backend == "ollama":
+        translator = attogrid.OllamaTranslator()  # 로컬 LLM
+        print("[ollama] 로컬 LLM 번역 (OpenAI 호환).")
+    elif backend == "claude":
+        translator = attogrid.ClaudeTranslator()  # ANTHROPIC_API_KEY 필요·외부 전송
+        print("[claude] Anthropic API 번역 (외부 전송 주의).")
     else:
         translator = attogrid.DeepLTranslator()  # DEEPL_API_KEY 필요
         print("[deepl] DeepL API 번역.")
@@ -118,6 +124,8 @@ def cmd_rewrite(args):
         tr = attogrid.DeepLTranslator()
     elif args.backend == "ollama":
         tr = attogrid.OllamaTranslator()
+    elif args.backend == "claude":
+        tr = attogrid.ClaudeTranslator()
     else:
         tr = attogrid.ArgosTranslator()
     cache = attogrid.TranslationCache(Path(args.cache)).load() if args.cache else None
@@ -156,7 +164,9 @@ def main():
     s.add_argument("--glossary", default="attogrid/glossary/zh_ko.json")
     s.add_argument("--limit", type=int, default=0)
     s.add_argument("--show", type=int, default=15)
-    s.add_argument("--backend", choices=["deepl", "argos", "mock"], default="deepl")
+    s.add_argument("--backend",
+                   choices=["deepl", "argos", "ollama", "claude", "mock"],
+                   default="deepl")
     s.add_argument("--mock", action="store_true")
     s.add_argument("--cache", default=".attogrid_cache.json")
     s.add_argument("--out")
@@ -164,7 +174,7 @@ def main():
     s = sub.add_parser("rewrite"); s.add_argument("file"); s.add_argument("out")
     s.add_argument("--to", default="ko")
     s.add_argument("--backend",
-                   choices=["glossary", "deepl", "argos", "ollama", "mock"],
+                   choices=["glossary", "deepl", "argos", "ollama", "claude", "mock"],
                    default="argos")
     s.add_argument("--glossary", default="attogrid/glossary/zh_ko.json")
     s.add_argument("--cache", default=".attogrid_cache.json")

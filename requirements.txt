@@ -2,5 +2,6 @@ ezdxf>=1.4
 matplotlib>=3.10
 deepl>=1.20          # DeepL 번역 백엔드 (DEEPL_API_KEY 필요)
 argostranslate>=1.9  # 오프라인 오픈소스 번역 백엔드 (선택)
+anthropic>=0.40      # Claude 번역 백엔드 (ANTHROPIC_API_KEY 필요·외부 전송)
 pywebview>=6.0       # 데스크톱 앱 셸 (로컬 전용)
 flask>=3.0           # 웹 서버 (사내 배포용)

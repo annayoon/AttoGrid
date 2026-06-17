@@ -86,6 +86,8 @@ def _translator(backend: str):
         return attogrid.DeepLTranslator()
     if backend == "ollama":
         return attogrid.OllamaTranslator()
+    if backend == "claude":
+        return attogrid.ClaudeTranslator()
     return attogrid.ArgosTranslator()
 
 
