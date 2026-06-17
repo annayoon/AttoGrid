@@ -202,24 +202,47 @@ def json_to_svg(
             )
         lines.append("</g>")
 
-    # 번역 텍스트 오버레이 (원래 좌표에 한국어)
+    # 번역 텍스트 오버레이 (원래 좌표에 한국어) — 겹침 회피 배치
+    #
+    # 실도면은 주석 텍스트가 빽빽해 그대로 얹으면 서로 겹쳐 읽을 수 없다.
+    # 1) 실제 글자 높이를 존중하되(없으면 기본값) 과대/과소만 캡 — 균일 클램핑
+    #    이 모든 글자를 같은 크기로 키워 겹침을 악화시키던 문제 제거.
+    # 2) 큰 글자(중요 라벨) 우선으로, 이미 놓인 라벨과 겹치면 생략하는 그리디 배치.
+    #    panzoom 확대 시 SVG가 벡터 재렌더되므로 작은 글자도 확대해 읽을 수 있다.
+    #    (전체 원문→번역 1:1 보존이 필요하면 '번역 DXF 저장'을 사용)
     if texts:
         def _esc2(s):
             return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        default_h = w * 0.004
+        min_h     = w * 0.0009  # 가독 최소(확대 전제) — 과거 w*0.003은 겹침 유발
+        max_h     = w * 0.02    # 과대 글자 방지(높이 정보 이상치 대응)
+
+        prepared = []
+        for tx in texts:
+            s = _esc2(tx.get("text", ""))
+            if not s:
+                continue
+            fh = tx.get("height") or default_h
+            fh = max(min_h, min(float(fh), max_h))
+            prepared.append((fh, float(tx["x"]), maxy - float(tx["y"]), s,
+                             len(tx.get("text", ""))))
+        prepared.sort(key=lambda r: -r[0])  # 큰 글자 우선
+
+        placed: list[tuple[float, float, float, float]] = []
+        def _hit(b):
+            for p in placed:
+                if not (b[2] < p[0] or b[0] > p[2] or b[3] < p[1] or b[1] > p[3]):
+                    return True
+            return False
+
         lines.append(f'<g transform="translate({-minx:.2f},0)" '
                      f'fill="#ffd479" stroke="none" font-family="sans-serif">')
-        default_h = w * 0.004
-        min_h    = w * 0.003   # 최소 9px (3000px 기준) — DWG 좌표 200단위 같은
-                               # 극소값은 SVG에서 0.7px이 되어 보이지 않으므로 클램핑
-        for tx in texts:
-            x = tx["x"]
-            y = maxy - tx["y"]
-            fh = tx.get("height") or default_h
-            fh = max(fh, min_h)  # 최솟값 보장
-            s = _esc2(tx.get("text", ""))
-            if s:
-                lines.append(
-                    f'<text x="{x:.1f}" y="{y:.1f}" font-size="{fh:.1f}">{s}</text>')
+        for fh, x, y, s, n in prepared:
+            box = (x, y - fh, x + n * fh * 0.62, y)  # 한 줄 글자상자(근사)
+            if _hit(box):
+                continue                              # 겹치면 생략
+            placed.append(box)
+            lines.append(f'<text x="{x:.1f}" y="{y:.1f}" font-size="{fh:.1f}">{s}</text>')
         lines.append("</g>")
 
     lines.append("</svg>")
