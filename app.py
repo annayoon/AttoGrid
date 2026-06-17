@@ -470,17 +470,47 @@ class Api:
             p.write_text("﻿" + buf.getvalue(), encoding="utf-8")
         return {"path": str(p), "count": len(rows)}
 
-    def _save_dialog(self, fmt: str) -> str | None:
+    def _save_dialog(self, fmt: str, filename: str | None = None) -> str | None:
         try:
             import webview
             win = webview.windows[0]
             r = win.create_file_dialog(
-                webview.SAVE_DIALOG, save_filename=f"translations.{fmt}")
+                webview.SAVE_DIALOG,
+                save_filename=filename or f"translations.{fmt}")
         except Exception:
             return None
         if not r:
             return None
         return r if isinstance(r, str) else r[0]
+
+    # --- 번역 제자리 교체 DXF 내보내기 (CAD 파일) ---
+    def export_dxf(self, path: str, backend: str = "glossary",
+                   out_path: str | None = None) -> dict:
+        """원본 DWG/DXF의 TEXT/MTEXT를 번역으로 제자리 교체해 DXF로 저장.
+
+        backend="glossary"면 사전만으로 즉시, 그 외는 엔진(ollama/argos/deepl) 번역.
+        """
+        suffix = Path(path).suffix.lower()
+        if suffix not in (".dwg", ".dxf"):
+            return {"error": "DXF 내보내기는 원본 DWG/DXF 파일이 필요합니다 "
+                             "(.json 덤프는 제자리 교체 불가)."}
+        glossary   = attogrid.load_glossary(GLOSSARY)
+        translator = None if backend == "glossary" else self._translator(backend)
+        cache = (attogrid.TranslationCache(ROOT / ".attogrid_cache.json").load()
+                 if backend != "glossary" else None)
+
+        stem = Path(path).stem
+        if not out_path:
+            out_path = self._save_dialog("dxf", filename=f"{stem}_ko.dxf") \
+                or str(Path(path).with_name(f"{stem}_ko.dxf"))
+        p = Path(out_path).expanduser()
+        if p.suffix.lower() != ".dxf":
+            p = p.with_suffix(".dxf")
+
+        stat = attogrid.translate_dxf(path, str(p), translator, glossary=glossary,
+                                      target="ko", source="zh", cache=cache)
+        return {"path": str(p), "replaced": stat["replaced"],
+                "entities": stat["entities"], "backend": backend}
 
 
 def main():
