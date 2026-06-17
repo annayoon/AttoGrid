@@ -7,7 +7,7 @@ attogrid CLI — DWG 도면을 읽어 텍스트 추출/번역대상 분류/전�
     python cli.py texts    <file.dwg|.json> [--translatable]
     python cli.py validate <file.dwg|.json> [--rules attogrid/rules/datacenter.json]
     python cli.py translate <file.dwg|.json> [--to ko] [--limit N] [--mock] [--out map.json]
-    python cli.py rewrite  <file.dxf> <out.dxf> [--backend argos] [--to ko]
+    python cli.py rewrite  <file.dwg|.dxf> <out.dxf> [--backend glossary|argos|ollama] [--to ko]
     python cli.py image    <file.dwg|.json> <out.png|.svg>
     python cli.py svg      <file.dwg> <out.svg>
 """
@@ -110,10 +110,14 @@ def cmd_translate(args):
 
 def cmd_rewrite(args):
     glossary = attogrid.load_glossary(args.glossary) if args.glossary else {}
-    if args.backend == "mock":
+    if args.backend == "glossary":
+        tr = None  # 사전만으로 즉시 치환(외부 엔진 불필요)
+    elif args.backend == "mock":
         tr = attogrid.MockTranslator()
     elif args.backend == "deepl":
         tr = attogrid.DeepLTranslator()
+    elif args.backend == "ollama":
+        tr = attogrid.OllamaTranslator()
     else:
         tr = attogrid.ArgosTranslator()
     cache = attogrid.TranslationCache(Path(args.cache)).load() if args.cache else None
@@ -159,7 +163,9 @@ def main():
     s.set_defaults(fn=cmd_translate)
     s = sub.add_parser("rewrite"); s.add_argument("file"); s.add_argument("out")
     s.add_argument("--to", default="ko")
-    s.add_argument("--backend", choices=["deepl", "argos", "mock"], default="argos")
+    s.add_argument("--backend",
+                   choices=["glossary", "deepl", "argos", "ollama", "mock"],
+                   default="argos")
     s.add_argument("--glossary", default="attogrid/glossary/zh_ko.json")
     s.add_argument("--cache", default=".attogrid_cache.json")
     s.set_defaults(fn=cmd_rewrite)

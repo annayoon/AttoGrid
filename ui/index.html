@@ -18,7 +18,7 @@
       <button id="btn-load">열기</button>
       <!-- 웹 모드: 파일 업로드 (pywebview에서는 숨김) -->
       <label id="web-upload-wrap" style="display:none">
-        <input type="file" id="web-upload" accept=".json,.dwg" style="display:none">
+        <input type="file" id="web-upload" accept=".json,.dwg,.dxf" style="display:none">
         <button type="button" id="btn-web-upload">업로드</button>
       </label>
       <span id="filepath" class="filepath">파일을 선택하세요</span>
@@ -53,6 +53,7 @@
           <option value="argos">argos</option>
           <option value="deepl">DeepL</option>
         </select>
+        <button id="btn-overlay-dxf" title="번역을 제자리 교체한 CAD 파일(.dxf) 저장">번역 DXF 저장</button>
         <span style="flex:1"></span>
         <label><input type="checkbox" id="img-markers"> 전압 마커 포함</label>
         <button id="btn-png">PNG 저장</button>

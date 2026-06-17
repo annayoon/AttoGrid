@@ -165,6 +165,23 @@ $("#btn-overlay-reset").onclick = async () => {
   } catch (e) { status("도면 복귀 오류: " + String(e), "sev-error"); }
 };
 
+// 번역 제자리 교체 DXF(CAD 파일) 저장
+$("#btn-overlay-dxf").onclick = async () => {
+  if (!needFile()) return;
+  if (!/\.(dwg|dxf)$/i.test(currentPath)) {
+    status("DXF 내보내기는 원본 .dwg/.dxf 파일이 필요합니다 (.json 덤프 불가)", "sev-warning");
+    return;
+  }
+  const engine = $("#overlay-engine").value;
+  status(`번역 DXF 생성 중… (${engine})${engine !== "glossary" ? " — 시간이 걸릴 수 있습니다" : ""}`, "spin");
+  try {
+    const r = await window.pywebview.api.export_dxf(currentPath, engine);
+    if (r && r.error) { status("DXF 내보내기 오류: " + r.error, "sev-error"); return; }
+    const where = r.replaced != null ? ` (${r.replaced}/${r.entities}건 교체)` : "";
+    status(`번역 DXF 저장됨: ${r.path}${where}`);
+  } catch (e) { status("DXF 내보내기 오류: " + String(e), "sev-error"); }
+};
+
 // 3D PNG 저장 — 현재 보이는 뷰 그대로 캡처
 $("#btn-3d-png").onclick = async () => {
   if (!needFile()) return;

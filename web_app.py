@@ -123,7 +123,8 @@ def api_upload():
 
 @app.route("/api/files", methods=["GET"])
 def api_files():
-    files = sorted(UPLOAD_DIR.glob("*.json")) + sorted(UPLOAD_DIR.glob("*.dwg"))
+    files = (sorted(UPLOAD_DIR.glob("*.json")) + sorted(UPLOAD_DIR.glob("*.dwg"))
+             + sorted(UPLOAD_DIR.glob("*.dxf")))
     return jsonify({"files": [{"name": p.name, "path": str(p)} for p in files]})
 
 
@@ -468,6 +469,42 @@ def api_export_translations():
             fname   = "translations.csv"
         return send_file(io.BytesIO(content), as_attachment=True,
                          download_name=fname, mimetype=mime)
+    except Exception as e:
+        return _err(str(e))
+
+
+@app.route("/api/export_dxf", methods=["POST"])
+def api_export_dxf():
+    """번역을 제자리 교체한 DXF(CAD 파일) 다운로드.
+
+    원본 DWG/DXF 파일이 필요하다(.json 캐시 덤프로는 불가).
+    backend="glossary"면 사전만으로 즉시, 그 외(ollama/argos/deepl)는 엔진 번역.
+    """
+    data    = request.get_json(force=True)
+    path    = data.get("path", "")
+    backend = data.get("backend", "glossary")
+    try:
+        suffix = Path(path).suffix.lower()
+        if suffix not in (".dwg", ".dxf"):
+            return _err("DXF 내보내기는 원본 DWG/DXF 파일이 필요합니다 "
+                        "(.json 덤프는 제자리 교체 불가).", 400)
+        glossary   = attogrid.load_glossary(GLOSSARY)
+        translator = None if backend == "glossary" else _translator(backend)
+        cache = (attogrid.TranslationCache(ROOT / ".attogrid_cache.json").load()
+                 if backend != "glossary" else None)
+
+        fd, tmp = tempfile.mkstemp(suffix=".dxf")
+        os.close(fd)
+        try:
+            attogrid.translate_dxf(path, tmp, translator, glossary=glossary,
+                                   target="ko", source="zh", cache=cache)
+            stem = Path(path).stem
+            return send_file(tmp, as_attachment=True,
+                             download_name=f"{stem}_ko.dxf",
+                             mimetype="application/dxf")
+        except Exception:
+            os.unlink(tmp)
+            raise
     except Exception as e:
         return _err(str(e))
 

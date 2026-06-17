@@ -112,6 +112,10 @@
       export_translations: (rows, fmt) =>
         _download("export_translations", { rows, fmt }, `translations.${fmt || "csv"}`),
 
+      // 번역 제자리 교체 DXF(CAD 파일) 다운로드
+      export_dxf: (path, backend) =>
+        _download("export_dxf", { path, backend }, "translated_ko.dxf"),
+
       export_sections: (path, method, fmt, markers, rows, cols) =>
         _download("export_sections", { path, method, fmt, markers, rows, cols }, "sections.zip"),
 
