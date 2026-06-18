@@ -327,10 +327,18 @@ def api_render_translated():
     path      = data.get("path", "")
     backend   = data.get("backend", "glossary")
     max_count = data.get("max_count", 50000)
+    limit     = data.get("limit")
     try:
         d = _load(path)
         items    = [it for it in attogrid.extract_texts(d)
                     if it.translatable and it.x is not None]
+        total    = len(items)
+        # 외부 API 백엔드(claude/deepl)는 도면 전체 번역 시 느려 타임아웃되므로
+        # 상한을 둔다(미리보기용). 전체 1:1 번역이 필요하면 '번역 DXF 저장' 사용.
+        if limit is None and backend in ("claude", "deepl"):
+            limit = 120
+        if limit:
+            items = items[:int(limit)]
         glossary = attogrid.load_glossary(GLOSSARY)
         if backend == "glossary":
             outs = [attogrid.glossary_translate(it.text, glossary) for it in items]
@@ -343,7 +351,8 @@ def api_render_translated():
                  for it, t in zip(items, outs) if t]
         svg = attogrid.render.json_to_svg(
             d, max_count=max_count, width=3000, texts=texts)
-        return jsonify({"svg": svg, "texts": len(texts), "backend": backend})
+        return jsonify({"svg": svg, "texts": len(texts), "total": total,
+                        "backend": backend})
     except Exception as e:
         return _err(str(e))
 

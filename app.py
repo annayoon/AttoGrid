@@ -140,6 +140,9 @@ class Api:
         d = self._load(path)
         items = [it for it in attogrid.extract_texts(d)
                  if it.translatable and it.x is not None]
+        # 외부 API 백엔드(claude/deepl)는 전체 번역 시 느려 타임아웃 → 미리보기 상한
+        if not limit and backend in ("claude", "deepl"):
+            limit = 120
         if limit:
             items = items[:limit]
         glossary = attogrid.load_glossary(GLOSSARY)
