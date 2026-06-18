@@ -152,7 +152,10 @@ $("#btn-overlay").onclick = async () => {
     setupPanZoom($("#preview-out"));
     document.querySelector('.tab[data-tab="preview"]').click();
     $("#btn-overlay-reset").style.display = "";   // 원본으로 버튼 표시
-    status(`번역 ${r.texts.toLocaleString()}개를 도면에 얹음 (${r.backend}) · 휠로 확대`);
+    const capped = r.total && r.total > r.texts
+      ? ` · 상위 ${r.texts.toLocaleString()}/${r.total.toLocaleString()}개 미리보기(전체는 ‘번역 DXF 저장’)`
+      : "";
+    status(`번역 ${r.texts.toLocaleString()}개를 도면에 얹음 (${r.backend})${capped} · 휠로 확대`);
   } catch (e) { status("번역 얹기 오류: " + String(e), "sev-error"); }
 };
 
