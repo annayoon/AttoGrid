@@ -3,60 +3,250 @@
 
 두 경로:
   1) json_to_svg() — dwgread JSON 지오메트리를 직접 SVG로 렌더(권장, 전체 도면).
-     LINE/LWPOLYLINE/ARC/CIRCLE를 폴리라인으로 변환하고 robust bbox로 뷰박스 결정.
+     LINE/LWPOLYLINE/ARC/CIRCLE/ELLIPSE/SPLINE/SOLID을 폴리라인으로 변환하고
+     robust bbox로 뷰박스 결정. 레이어별 색상 반영.
   2) to_svg() — libredwg dwg2SVG 래퍼(복잡한 도면에서 부분 렌더 가능성).
 """
 from __future__ import annotations
 
 import math
 import subprocess
+from collections import defaultdict
 from pathlib import Path
 from shutil import which
 
-# bbox 양끝 클립 분위수. dominant_cluster가 좌표계 이상치를 이미 제거하므로
-# 0(=실제 min/max)으로 둔다. 퍼센타일 클립은 시트 가장자리를 잘라낸다.
+# bbox 양끝 클립 분위수
 _CLIP_Q = 0.0
-_ARC_STEPS = 24
+# 곡선 분절 수 (24 → 90: 곡선이 훨씬 매끄러워짐)
+_ARC_STEPS = 90
+
+# ── 색상 시스템 ───────────────────────────────────────────────────────────
+
+# AutoCAD Color Index (ACI) → #rrggbb (어두운 배경 기준으로 밝게 조정)
+_ACI: dict[int, str] = {
+    1:  "#ff4444",  # red
+    2:  "#ffff44",  # yellow
+    3:  "#44dd44",  # green
+    4:  "#44dddd",  # cyan
+    5:  "#4488ff",  # blue
+    6:  "#ff44ff",  # magenta
+    7:  "#e8e8e8",  # white
+    8:  "#888888",  # dark gray
+    9:  "#bbbbbb",  # gray
+    # 10단위 블록 대표색
+    10: "#ff6666", 20: "#ffaa44", 30: "#ffdd44", 40: "#aaff44",
+    50: "#44ffaa", 60: "#44ffff", 70: "#44aaff", 80: "#aa44ff",
+    90: "#ff44aa", 100: "#ff4444", 110: "#ffaa00", 120: "#ffff00",
+    130: "#00ff66", 140: "#00dddd", 150: "#0066ff", 160: "#6600ff",
+    170: "#ff00ff",
+    # 회색 계열
+    250: "#555555", 251: "#777777", 252: "#999999",
+    253: "#bbbbbb", 254: "#dddddd", 255: "#f0f0f0",
+}
+_DEFAULT_COLOR = "#8fd3ff"   # 미분류 기본(연한 파랑)
 
 
-def _polylines(objects: list[dict], max_count: int,
-               model_only: bool = True) -> list[list[tuple[float, float]]]:
-    """엔티티를 (x,y) 폴리라인 목록으로 변환. model_only면 모델 공간(entmode 2)만."""
-    out: list[list[tuple[float, float]]] = []
+def _aci_rgb(idx: int) -> str:
+    """ACI 인덱스 → #rrggbb. 표에 없는 인덱스는 10단위 블록으로 보간."""
+    if idx in _ACI:
+        return _ACI[idx]
+    base = (idx // 10) * 10
+    if base in _ACI:
+        return _ACI[base]
+    # HSV 계산: ACI 10–249는 24단계 색조 × 명도/채도 변형
+    hue_block = ((idx - 10) // 10) % 24 if idx >= 10 else 0
+    h = hue_block / 24.0
+    s = 0.9
+    v = 1.0
+    i = int(h * 6)
+    f = h * 6 - i
+    p, q, t_v = v * (1 - s), v * (1 - s * f), v * (1 - s * (1 - f))
+    rgb_map = [(v, t_v, p), (q, v, p), (p, v, t_v),
+               (p, q, v), (t_v, p, v), (v, p, q)]
+    r, g, b = rgb_map[i % 6]
+    return f"#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
+
+
+def _parse_rgb(s: str) -> str | None:
+    """libredwg rgb 필드 '000000'/'c3rrggbb' → #rrggbb. 검정·빈값은 None."""
+    if not s:
+        return None
+    s = str(s).lstrip("#")
+    if len(s) == 8:
+        s = s[2:]   # 상위 플래그 바이트 제거
+    if len(s) == 6 and s.lower() not in ("000000",):
+        return f"#{s.lower()}"
+    return None
+
+
+def _build_layer_colors(objects: list[dict]) -> tuple[dict, dict]:
+    """LAYER 객체 스캔 → (handle_tuple→color, name→color) 두 딕셔너리."""
+    hcol: dict[tuple, str] = {}
+    ncol: dict[str, str] = {}
+    for o in objects:
+        if o.get("object") != "LAYER":
+            continue
+        name = o.get("name") or ""
+        ci = o.get("color") or {}
+        idx = ci.get("index", 7)
+        rgb = str(ci.get("rgb") or "")
+        # RGB 필드 우선, 없으면 ACI 인덱스 (0·256=BYLAYER 제외)
+        col = _parse_rgb(rgb) or _aci_rgb(int(idx) if idx not in (0, 256) else 7)
+        if name:
+            ncol[name] = col
+        h = o.get("handle")
+        if h is not None:
+            key = tuple(h) if isinstance(h, list) else (h,)
+            hcol[key] = col
+    return hcol, ncol
+
+
+def _ent_color(o: dict, hcol: dict, ncol: dict) -> str:
+    """엔티티의 유효 색상 결정 (BYLAYER이면 레이어 색 참조)."""
+    ci = o.get("color") or {}
+    idx = ci.get("index", 256)
+    rgb = str(ci.get("rgb") or "")
+    if idx not in (0, 256):
+        return _parse_rgb(rgb) or _aci_rgb(int(idx))
+    # BYLAYER: 레이어 핸들 또는 이름으로 조회
+    layer = o.get("layer")
+    if isinstance(layer, list):
+        c = hcol.get(tuple(layer))
+        if c:
+            return c
+    elif isinstance(layer, str):
+        c = ncol.get(layer)
+        if c:
+            return c
+    return _DEFAULT_COLOR
+
+
+# ── 엔티티 파서 ──────────────────────────────────────────────────────────
+
+def _arc_pts(c, r: float, a0: float, a1: float,
+             steps: int | None = None) -> list[tuple[float, float]]:
+    """호(ARC/CIRCLE) 점 목록. 각도: 라디안."""
+    if a1 < a0:
+        a1 += 2 * math.pi
+    span = a1 - a0
+    n = (max(2, int(span / (2 * math.pi) * _ARC_STEPS) + 1)
+         if steps is None else steps)
+    return [(c[0] + r * math.cos(a0 + span * i / n),
+             c[1] + r * math.sin(a0 + span * i / n))
+            for i in range(n + 1)]
+
+
+def _parse_entities(
+    objects: list[dict], max_count: int, model_only: bool = True,
+    hcol: dict | None = None, ncol: dict | None = None,
+) -> list[tuple[list[tuple[float, float]], str]]:
+    """엔티티 → [(pts, color), ...] 목록."""
+    hcol = hcol or {}
+    ncol = ncol or {}
+    out: list[tuple[list[tuple[float, float]], str]] = []
+
     for o in objects:
         if model_only and o.get("entmode") != 2:
             continue
         t = o.get("entity")
+        pts: list[tuple[float, float]] | None = None
+
         if t == "LINE":
             s, e = o.get("start"), o.get("end")
             if s and e:
-                out.append([(s[0], s[1]), (e[0], e[1])])
+                pts = [(s[0], s[1]), (e[0], e[1])]
+
         elif t == "LWPOLYLINE":
-            pts = [(p[0], p[1]) for p in o.get("points", []) if len(p) >= 2]
-            if len(pts) >= 2:
-                if o.get("flag", 0) & 1 and pts[0] != pts[-1]:
-                    pts.append(pts[0])  # 닫힘
-                out.append(pts)
+            raw = [(p[0], p[1]) for p in o.get("points", []) if len(p) >= 2]
+            if len(raw) >= 2:
+                if o.get("flag", 0) & 1 and raw[0] != raw[-1]:
+                    raw.append(raw[0])
+                pts = raw
+
         elif t == "CIRCLE":
             c, r = o.get("center"), o.get("radius")
             if c and r:
-                out.append([(c[0] + r * math.cos(a), c[1] + r * math.sin(a))
-                            for a in [i / _ARC_STEPS * 2 * math.pi
-                                      for i in range(_ARC_STEPS + 1)]])
+                pts = _arc_pts(c, r, 0.0, 2 * math.pi, _ARC_STEPS)
+
         elif t == "ARC":
             c, r = o.get("center"), o.get("radius")
-            a0, a1 = o.get("start_angle", 0.0), o.get("end_angle", 2 * math.pi)
+            a0 = float(o.get("start_angle") or 0.0)
+            a1 = float(o.get("end_angle") or (2 * math.pi))
             if c and r is not None:
+                pts = _arc_pts(c, r, a0, a1)
+
+        elif t == "ELLIPSE":
+            c = o.get("center")
+            # 장축 벡터: 여러 필드명 시도
+            mv = (o.get("sm_axis") or o.get("major_axis")
+                  or o.get("axis") or o.get("extrusion"))
+            ratio = float(o.get("axis_ratio") or o.get("b")
+                          or o.get("ratio") or 1.0)
+            a0 = float(o.get("start_param") or 0.0)
+            a1 = float(o.get("end_param") or (2 * math.pi))
+            if c and mv and len(mv) >= 2:
+                mx, my = mv[0], mv[1]
+                r_maj = math.hypot(mx, my)
+                if r_maj == 0:
+                    continue
+                r_min = r_maj * min(max(ratio, 0.001), 1.0)
+                rot = math.atan2(my, mx)
                 if a1 < a0:
                     a1 += 2 * math.pi
                 n = _ARC_STEPS
-                out.append([(c[0] + r * math.cos(a0 + (a1 - a0) * i / n),
-                             c[1] + r * math.sin(a0 + (a1 - a0) * i / n))
-                            for i in range(n + 1)])
+                raw = []
+                for i in range(n + 1):
+                    tp = a0 + (a1 - a0) * i / n
+                    ex = r_maj * math.cos(tp)
+                    ey = r_min * math.sin(tp)
+                    raw.append((
+                        c[0] + ex * math.cos(rot) - ey * math.sin(rot),
+                        c[1] + ex * math.sin(rot) + ey * math.cos(rot),
+                    ))
+                pts = raw
+
+        elif t == "SPLINE":
+            # 피팅점 → 제어점 순으로 시도
+            for key in ("fit_pts", "ctrl_pts", "points"):
+                raw = o.get(key) or []
+                if raw:
+                    cand = [(p[0], p[1]) for p in raw if len(p) >= 2]
+                    if len(cand) >= 2:
+                        pts = cand
+                        break
+
+        elif t == "SOLID":
+            corners: list[tuple[float, float]] = []
+            for key in ("corner1", "corner2", "corner3", "corner4"):
+                p = o.get(key)
+                if p and len(p) >= 2:
+                    corners.append((p[0], p[1]))
+            if len(corners) >= 3:
+                # SOLID는 지그재그 순서로 저장되므로 올바른 사각형 순서로 재배치
+                if len(corners) == 4:
+                    corners = [corners[0], corners[1],
+                               corners[3], corners[2], corners[0]]
+                else:
+                    corners.append(corners[0])
+                pts = corners
+
+        if pts and len(pts) >= 2:
+            col = _ent_color(o, hcol, ncol)
+            out.append((pts, col))
+
         if len(out) >= max_count:
             break
+
     return out
 
+
+def _polylines(objects: list[dict], max_count: int,
+               model_only: bool = True) -> list[list[tuple[float, float]]]:
+    """하위 호환용: (pts, color) → pts 만 반환."""
+    return [pts for pts, _ in _parse_entities(objects, max_count, model_only)]
+
+
+# ── 통계/클러스터 헬퍼 ────────────────────────────────────────────────────
 
 def _median(v):
     s = sorted(v)
@@ -66,7 +256,7 @@ def _median(v):
 
 def _dominant_cluster(polylines, k: float = 6.0):
     """중앙값±k·MAD 창에 드는 폴리라인만 남긴다(좌표계가 섞인 도면 대응)."""
-    if len(polylines) < 50:   # 작은 도면은 클러스터 분리 불필요(퇴화 방지)
+    if len(polylines) < 50:
         return polylines
     cx = [sum(p[0] for p in pl) / len(pl) for pl in polylines]
     cy = [sum(p[1] for p in pl) / len(pl) for pl in polylines]
@@ -103,6 +293,8 @@ def _clip(polylines, bounds):
     return out
 
 
+# ── SVG 렌더 ─────────────────────────────────────────────────────────────
+
 def json_to_svg(
     drawing, out_path: str | Path | None = None,
     max_count: int = 60000, width: int = 3000, stroke: float = 0.0,
@@ -111,47 +303,65 @@ def json_to_svg(
 ) -> str:
     """dwgread JSON 도면을 SVG 문자열로 렌더(필요 시 파일 저장).
 
-    highlights: [{"x":.., "y":.., "label":..}] 모델 좌표. 도면과 같은 변환으로
-    위치에 마커(원+십자+라벨)를 그린다(예: 비표준 전압 위치).
+    highlights: [{"x":.., "y":.., "label":..}] 모델 좌표 마커.
     bounds: (minx,miny,maxx,maxy) 지정 시 해당 구획만 렌더.
-    boxes: [{"bounds":[x0,y0,x1,y1], "label":..}] 구획 경계 사각형 오버레이.
+    boxes: [{"bounds":[x0,y0,x1,y1], "label":..}] 구획 경계 오버레이.
+    texts: [{"x":.., "y":.., "text":.., "height":..}] 번역 텍스트 오버레이.
     """
-    polylines = _polylines(drawing.objects, max_count)
-    polylines = _dominant_cluster(polylines)
+    hcol, ncol = _build_layer_colors(drawing.objects)
+    entities = _parse_entities(drawing.objects, max_count, hcol=hcol, ncol=ncol)
+
+    # dominant_cluster / clip 을 pts 목록에 적용하고, color 정보를 유지
+    all_pts = [pts for pts, _ in entities]
+    all_pts = _dominant_cluster(all_pts)
+    survived = {id(pl) for pl in all_pts}
+    entities = [(pts, col) for pts, col in entities if id(pts) in survived]
+
     if bounds:
-        polylines = _clip(polylines, bounds)
-    if not polylines:
+        clipped_pts = _clip([pts for pts, _ in entities], bounds)
+        survived2 = {id(pl) for pl in clipped_pts}
+        entities = [(pts, col) for pts, col in entities if id(pts) in survived2]
+
+    if not entities:
         raise RuntimeError("렌더할 도형이 없습니다.")
+
     if bounds:
         minx, miny, maxx, maxy = bounds
     else:
-        minx, miny, maxx, maxy = _robust_bounds(polylines)
+        minx, miny, maxx, maxy = _robust_bounds([pts for pts, _ in entities])
+
     w = (maxx - minx) or 1.0
     h = (maxy - miny) or 1.0
     height = int(width * h / w)
-    sw = stroke or (w / width)  # PNG 내보내기용 fallback 두께
 
     def fmt(pl):
-        # Y 뒤집기(CAD: 위로 +, SVG: 아래로 +)
         return " ".join(f"{x:.2f},{(maxy - y):.2f}" for x, y in pl
                         if minx - w <= x <= maxx + w)
+
+    def _esc(s):
+        return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
         f'viewBox="0 0 {w:.2f} {h:.2f}" style="background:#0f1419">',
-        # ▶ non-scaling-stroke: viewBox 줌(panzoom)에 관계없이 항상 1px 선 굵기 유지.
-        #   CSS transform 방식과 달리 viewBox 변경 시 SVG 엔진이 벡터를 재렌더하므로
-        #   어떤 줌 레벨에서도 Retina 해상도로 선명하게 표시됨.
         '<style>polyline{vector-effect:non-scaling-stroke;stroke-width:1}</style>',
-        f'<g transform="translate({-minx:.2f},0)" stroke="#8fd3ff" '
-        f'fill="none" stroke-linecap="round">',
     ]
-    drawn = 0
-    for pl in polylines:
-        pts = fmt(pl)
-        if pts.count(",") >= 1 and " " in pts:
-            lines.append(f'<polyline points="{pts}"/>')
-            drawn += 1
+
+    # 레이어 색상별 그룹으로 묶어 렌더
+    color_groups: dict[str, list] = defaultdict(list)
+    for pts, col in entities:
+        color_groups[col].append(pts)
+
+    lines.append(f'<g transform="translate({-minx:.2f},0)" fill="none" stroke-linecap="round">')
+    for col, pls in color_groups.items():
+        lines.append(f'<g stroke="{col}">')
+        drawn = 0
+        for pl in pls:
+            pts_str = fmt(pl)
+            if pts_str.count(",") >= 1 and " " in pts_str:
+                lines.append(f'<polyline points="{pts_str}"/>')
+                drawn += 1
+        lines.append("</g>")
     lines.append("</g>")
 
     # 하이라이트 마커
@@ -160,12 +370,9 @@ def json_to_svg(
         fs = w * 0.016
         lines.append(f'<g transform="translate({-minx:.2f},0)" '
                      f'font-family="sans-serif" font-size="{fs:.1f}">')
-        def _esc(s):
-            return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
         for hgl in highlights:
             hx, hy = hgl["x"], maxy - hgl["y"]
-            col = hgl.get("color", "#f85149")  # 기본 빨강(위반)
+            col = hgl.get("color", "#f85149")
             lab = _esc(hgl.get("label", ""))
             tip = _esc(hgl.get("tooltip", hgl.get("label", "")))
             lines.append(
@@ -191,7 +398,6 @@ def json_to_svg(
         for bx in boxes:
             x0, y0, x1, y1 = bx["bounds"]
             ry = maxy - y1
-            # 도면 위 라벨은 짧게(겹침 방지). 전체 제목은 표에서 확인.
             full = str(bx.get("title") or bx.get("label", ""))
             short = full if len(full) <= 16 else full[:15] + "…"
             short = short.replace("&", "&amp;").replace("<", "&lt;")
@@ -202,33 +408,28 @@ def json_to_svg(
             )
         lines.append("</g>")
 
-    # 번역 텍스트 오버레이 (원래 좌표에 한국어) — 겹침 회피 배치
+    # 번역 텍스트 오버레이 — 겹침 회피 배치
     #
-    # 실도면은 주석 텍스트가 빽빽해 그대로 얹으면 서로 겹쳐 읽을 수 없다.
-    # 1) 실제 글자 높이를 존중하되(없으면 기본값) 과대/과소만 캡 — 균일 클램핑
-    #    이 모든 글자를 같은 크기로 키워 겹침을 악화시키던 문제 제거.
-    # 2) 큰 글자(중요 라벨) 우선으로, 이미 놓인 라벨과 겹치면 생략하는 그리디 배치.
-    #    panzoom 확대 시 SVG가 벡터 재렌더되므로 작은 글자도 확대해 읽을 수 있다.
-    #    (전체 원문→번역 1:1 보존이 필요하면 '번역 DXF 저장'을 사용)
+    # 1) 실제 글자 높이 존중, 과대/과소만 캡
+    # 2) 큰 글자 우선 그리디 배치: 겹치면 생략 (panzoom 확대 시 SVG 벡터 재렌더)
     if texts:
-        def _esc2(s):
-            return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         default_h = w * 0.004
-        min_h     = w * 0.0009  # 가독 최소(확대 전제) — 과거 w*0.003은 겹침 유발
-        max_h     = w * 0.02    # 과대 글자 방지(높이 정보 이상치 대응)
+        min_h     = w * 0.0009
+        max_h     = w * 0.02
 
         prepared = []
         for tx in texts:
-            s = _esc2(tx.get("text", ""))
+            s = _esc(tx.get("text", ""))
             if not s:
                 continue
             fh = tx.get("height") or default_h
             fh = max(min_h, min(float(fh), max_h))
             prepared.append((fh, float(tx["x"]), maxy - float(tx["y"]), s,
                              len(tx.get("text", ""))))
-        prepared.sort(key=lambda r: -r[0])  # 큰 글자 우선
+        prepared.sort(key=lambda row: -row[0])
 
         placed: list[tuple[float, float, float, float]] = []
+
         def _hit(b):
             for p in placed:
                 if not (b[2] < p[0] or b[0] > p[2] or b[3] < p[1] or b[1] > p[3]):
@@ -238,9 +439,9 @@ def json_to_svg(
         lines.append(f'<g transform="translate({-minx:.2f},0)" '
                      f'fill="#ffd479" stroke="none" font-family="sans-serif">')
         for fh, x, y, s, n in prepared:
-            box = (x, y - fh, x + n * fh * 0.62, y)  # 한 줄 글자상자(근사)
+            box = (x, y - fh, x + n * fh * 0.62, y)
             if _hit(box):
-                continue                              # 겹치면 생략
+                continue
             placed.append(box)
             lines.append(f'<text x="{x:.1f}" y="{y:.1f}" font-size="{fh:.1f}">{s}</text>')
         lines.append("</g>")
@@ -252,6 +453,8 @@ def json_to_svg(
         Path(out_path).write_text(svg, encoding="utf-8")
     return svg
 
+
+# ── PNG 렌더 ─────────────────────────────────────────────────────────────
 
 def json_to_png(
     drawing, out_path: str | Path,
@@ -284,7 +487,7 @@ def json_to_png(
 
     if highlights:
         for hgl in highlights:
-            hx, hy = hgl["x"], hgl["y"]          # matplotlib은 Y 위로(+) → 뒤집지 않음
+            hx, hy = hgl["x"], hgl["y"]
             col = hgl.get("color", "#f85149")
             ax.plot(hx, hy, marker="o", mfc="none", mec=col, mew=1.2, ms=10)
             ax.annotate(str(hgl.get("label", "")), (hx, hy),
